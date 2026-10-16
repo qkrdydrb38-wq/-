@@ -1,0 +1,17 @@
+{
+  "name": "우리의 날들",
+  "short_name": "우리의 날들",
+  "description": "그녀와의 하루하루를 기록하는 우리만의 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FBF6F3",
+  "theme_color": "#DE4A75",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
