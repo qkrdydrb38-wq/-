@@ -373,7 +373,7 @@ body[data-view="settings"] .fab { display: none; }
 .month-group h3 { font-size: 15px; color: var(--muted); margin: 20px 4px 10px; font-weight: 800; }
 .month-group h3 small { color: var(--faint); font-weight: 700; margin-left: 4px; }
 .rec-list { display: grid; gap: 10px; }
-@media (min-width: 900px) { .rec-list.two { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .rec-list.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .entry-card {
   display: flex; gap: 14px; padding: 14px 16px 14px 12px; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow);
   cursor: pointer; text-align: left; transition: transform .1s;
@@ -393,8 +393,9 @@ body[data-view="settings"] .fab { display: none; }
 }
 .ec-place { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
 .ec-place .ic { width: 15px; height: 15px; }
-.ec-photos { display: flex; gap: 6px; margin-top: 10px; }
-.ec-photos img, .ec-more { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--surface-3); flex: none; }
+/* 작은 사진 줄: 사진이 많아도 카드 폭 안에서 줄어들게 (최대 4장 + '+n') */
+.ec-photos { display: grid; grid-template-columns: repeat(5, minmax(0, 64px)); gap: 6px; margin-top: 10px; }
+.ec-photos img, .ec-more { width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; object-fit: cover; background: var(--surface-3); display: block; }
 .ec-more { display: grid; place-items: center; font-weight: 800; color: var(--muted); font-size: 15px; }
 .ph-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 12px; }
 @media (min-width: 600px) { .ph-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } }
@@ -921,6 +922,26 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
 .it-hint { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
 .it-have-t { margin: 0 0 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
 .it-have:empty { display: none; }
+
+/* ==========================================================================
+   화면보다 넓어지지 않게 (v1.2.2)
+   사진이 많은 기록, 띄어쓰기 없는 긴 글자 때문에 카드가 휴대폰 폭보다 넓어지면
+   크롬이 화면 전체(아래 메뉴까지)를 넓혀 버려서 오른쪽이 잘리고 확대된 것처럼 보였다.
+   ========================================================================== */
+.rec-list, .home .col, .ev-layout .col, .pf-grid .col, .set-grid .col, .stack, .form, .btn-col, .ev-chips, .se, .steps > li {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) { .rec-list.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rec-list > *, .home .col > *, .ev-layout .col > *, .pf-grid .col > *, .set-grid .col > *, .card, .entry-card, .month-group { min-width: 0; }
+.ec-title, .ec-text, .ec-place, .ev-title, .ev-text, .ev-place, .up-title, .lr-main, .kv .v, .pf-name, .hero-names, .mem-cap, .tag {
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.ec-place { align-items: flex-start; }
+.ec-place .ic { margin-top: 2px; flex: none; }
+/* 마지막 안전장치: 혹시 넓은 것이 생겨도 화면 밖으로 밀어내지 않고 잘라 냄 (아래 메뉴는 영향 없음) */
+@supports (overflow: clip) {
+  main { overflow-x: clip; overflow-clip-margin: 24px; }
+}
 
 </style>
 </head>
@@ -1611,7 +1632,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Core;
 (() => {
 'use strict';
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const APP_NAME = '나경이 일기';   // 화면에 보이는 앱 이름 (저장소·내부 이름 our-days 는 그대로 둠 → 기존 기록 유지)
 const C = Core;
 
