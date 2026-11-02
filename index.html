@@ -1639,7 +1639,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Core;
 (() => {
 'use strict';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 const APP_NAME = '나경이 일기';   // 화면에 보이는 앱 이름 (저장소·내부 이름 our-days 는 그대로 둠 → 기존 기록 유지)
 const C = Core;
 
@@ -1701,7 +1701,37 @@ function groupBy(list, key) {
   for (const x of list) { const k = x[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(x); }
   return m;
 }
-function downloadBlob(blob, name) {
+// 안드로이드 앱(나경이 일기 APK) 안에서 열렸으면 앱이 넣어 준 연결 통로가 있음
+const APP = window.NagyeongApp || null;
+const appSaves = {};
+window.__appSaveReady = (id, ok) => { const r = appSaves[id]; if (r) { delete appSaves[id]; r(!!ok); } };
+// 앱 안에서는 <a download>가 동작하지 않아서, 앱이 연 '저장 위치'에 조각조각 보내 저장한다
+async function appSave(blob, name) {
+  let id;
+  try { id = APP.saveStart(name, blob.type || 'application/octet-stream'); } catch (e) { return false; }
+  const ok = await new Promise(res => { appSaves[id] = res; });
+  if (!ok) { toast('저장을 취소했어요'); return false; }
+  const CH = 384 * 1024;
+  try {
+    for (let off = 0; off < blob.size; off += CH) {
+      const buf = new Uint8Array(await blob.slice(off, off + CH).arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+      if (!APP.saveChunk(id, btoa(bin))) throw new Error('파일에 쓰지 못했어요');
+      if (blob.size > CH * 4) showBusy('파일 저장 중…', Math.min(1, (off + CH) / blob.size));
+    }
+    hideBusy();
+    return !!APP.saveEnd(id);
+  } catch (err) {
+    hideBusy();
+    try { APP.saveEnd(id); } catch (e) { /* 무시 */ }
+    alertBox('저장하지 못했어요', String((err && err.message) || err));
+    return false;
+  }
+}
+// 파일 저장 (성공하면 true)
+async function downloadBlob(blob, name) {
+  if (APP && APP.saveStart) return appSave(blob, name);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name;
@@ -1709,6 +1739,7 @@ function downloadBlob(blob, name) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  return true;
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); }
@@ -1774,7 +1805,6 @@ const defaultSettings = () => ({
   theme: 'auto', photoQuality: 'normal',
   pinHash: '', pinSalt: '', pinHint: '', lastBackupAt: 0, installDismissed: false,
   shiftOn: true, shiftTypes: C.DEFAULT_SHIFT_TYPES.map(x => ({ ...x })),
-  widgetSentAt: 0,   // 위젯으로 마지막으로 보낸 때
 });
 const defaultProfile = () => ({
   name: '', nickname: '', birthday: '', phone: '', mbti: '', bloodType: '', height: '', job: '', address: '',
@@ -1818,14 +1848,17 @@ async function loadAll() {
   const sh = await kvGet('shifts', {});
   S.shifts = sh && typeof sh === 'object' ? sh : {};
   setAvatarURL(await kvGet('avatar', null));
+  syncWidget();
 }
 async function saveSettings(patch) {
   Object.assign(S.settings, patch);
   await kvSet('settings', S.settings);
+  syncWidget();
 }
 async function saveProfile(patch) {
   Object.assign(S.profile, patch);
   await kvSet('profile', S.profile);
+  syncWidget();
 }
 const herName = () => String(S.profile.name || S.profile.nickname || '').trim() || '그녀';
 const photoTotal = () => S.entries.reduce((n, e) => n + e.photoIds.length, 0);
@@ -2834,13 +2867,12 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
   $('.vw-close', wrap).addEventListener('click', () => ov.close());
   $('.vw-save', wrap).addEventListener('click', async () => {
     const it = items[i];
-    if (it.blob) { downloadBlob(it.blob, it.name || 'photo.jpg'); toast('사진을 저장했어요'); return; }
+    if (it.blob) { if (await downloadBlob(it.blob, it.name || 'photo.jpg')) toast('사진을 저장했어요'); return; }
     if (!it.pid) return;
     const p = await dbGet('photos', it.pid);
     if (!p) return;
     const e = S.entries.find(x => x.id === items[i].entryId);
-    downloadBlob(p.blob, `나경이일기-${e ? e.date : 'photo'}-${i + 1}.jpg`);
-    toast('사진을 저장했어요');
+    if (await downloadBlob(p.blob, `나경이일기-${e ? e.date : 'photo'}-${i + 1}.jpg`)) toast('사진을 저장했어요');
   });
   const entryBtn = $('.vw-entry', wrap);
   if (entryBtn) entryBtn.addEventListener('click', async () => {
@@ -2941,6 +2973,7 @@ async function saveShifts(map) {
   for (const [d, c] of Object.entries(map)) if (c && C.isValid(d)) clean[d] = String(c);
   await kvSet('shifts', clean);
   S.shifts = clean;
+  syncWidget();
 }
 
 // 달력 날짜 패널의 근무 줄
@@ -2989,7 +3022,7 @@ function shiftCardHTML() {
     <div class="shift-today"><span class="sr-label">오늘</span>${todayHTML}</div>
     <div class="week-strip">${strip}</div>
     <p class="stats">${offText}</p>
-    <button class="btn small soft w-send" data-act="widget-send">📲 ${S.settings.widgetSentAt ? '위젯으로 보내기' : '홈 화면 위젯 만들기'}</button></section>`;
+    ${widgetCardButton()}</section>`;
 }
 
 // Claude에게 보낼 부탁 문장
@@ -3208,10 +3241,7 @@ function openShiftEditor(date) {
       await sh.close();
       if (S.view === 'calendar') { const p = C.parse(cur); S.calY = p.y; S.calM = p.m; S.selDate = cur; }
       refreshAll();
-      toast('근무표를 저장했어요');
-      if (S.settings.widgetSentAt && await confirmBox({ title: '위젯에도 보낼까요?', message: '휴대폰 홈 화면 위젯에도 바뀐 근무표를 보내요.', ok: '보내기', cancel: '나중에' })) {
-        sendToWidget('open');
-      }
+      toast(APP ? '근무표를 저장했어요 · 위젯도 바뀌었어요' : '근무표를 저장했어요');
     } catch (err) { saveError(err); }
   });
 
@@ -3290,11 +3320,9 @@ function openShiftImport({ y, m, photo, onApply }) {
   });
 }
 
-// ── 휴대폰 홈 화면 위젯으로 보내기 ──────────────────────────────────
-// 웹 앱은 안드로이드 위젯을 만들 수 없어서, 따로 설치한 「나경이 근무 위젯」 앱(com.nagyeong.widget)에 근무표를 넘긴다.
-// 형식: 첫 줄 NGW1, 그다음 탭(\t)으로 나눈 줄들 → UTF-8 → base64url → nagyeongwidget://import?d=…
-const WIDGET_PKG = 'com.nagyeong.widget';
-const NAV = { go: url => { location.href = url; } };   // 시험할 때 바꿔 끼울 수 있게
+// ── 휴대폰 홈 화면 위젯 ─────────────────────────────────────────
+// 안드로이드 앱(나경이 일기 APK) 안에서는 근무표·설정·이름이 바뀔 때마다 앱의 위젯에 저절로 넘긴다.
+// 넘기는 글 형식: 첫 줄 NGW1, 그다음 탭(\t)으로 나눈 줄들 (name / url / sent / type / day)
 function widgetText() {
   const clean = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
   const from = C.addDays(C.today(), -14);
@@ -3303,38 +3331,43 @@ function widgetText() {
   for (const d of Object.keys(S.shifts).sort()) if (d >= from && S.shifts[d]) lines.push(`day\t${d}\t${clean(S.shifts[d])}`);
   return lines.join('\n');
 }
-function base64url(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function syncWidget() {
+  if (!APP || !APP.updateWidget) return;
+  try { APP.updateWidget(widgetText()); } catch (e) { console.warn('위젯 갱신 실패', e); }
 }
-// 깃허브 주소(아이디.github.io/저장소/)에서 위젯 앱 내려받는 곳(Releases) 주소 만들기
-function widgetReleaseURL() {
+function appWidgetInfo() {
+  let n = 0, can = false;
+  try { n = Number(APP.widgetCount()) || 0; } catch (e) { /* 무시 */ }
+  try { can = !!APP.canPin(); } catch (e) { /* 무시 */ }
+  return { n, can };
+}
+// 깃허브 주소(아이디.github.io/저장소/)에서 안드로이드 앱 내려받는 곳(Releases) 주소 만들기
+function appReleaseURL() {
   const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
   const repo = location.pathname.split('/').filter(Boolean)[0];
   return m && repo ? `https://github.com/${m[1]}/${repo}/releases/latest` : '';
 }
-function canShareText() {
-  try { return !!(navigator.share && (!navigator.canShare || navigator.canShare({ text: 'x' }))); } catch (e) { return false; }
+// 홈 근무 카드 아래 버튼 (앱 안에서 위젯이 아직 없을 때만)
+function widgetCardButton() {
+  if (!APP) return '';
+  const { n, can } = appWidgetInfo();
+  return n === 0 && can ? '<button class="btn small soft w-send" data-act="widget-pin">📲 홈 화면에 위젯 추가하기</button>' : '';
 }
-function widgetLink() { return `nagyeongwidget://import?d=${base64url(widgetText())}`; }
-async function sendToWidget(how = 'open') {
-  if (!Object.keys(S.shifts).length) { toast('보낼 근무표가 없어요. 근무표를 먼저 넣어 주세요'); return; }
-  const link = widgetLink();
-  try { await saveSettings({ widgetSentAt: Date.now() }); } catch (e) { /* 무시 */ }
-  if (how === 'share') {
-    try { await navigator.share({ title: '나경이 근무 위젯', text: link }); }
-    catch (err) { if (!err || err.name !== 'AbortError') toast('보내지 못했어요'); }
-    refreshAll();
-    return;
+// 설정 → 근무표 카드 안의 위젯 안내
+function widgetBoxHTML() {
+  if (APP) {
+    const { n, can } = appWidgetInfo();
+    return `<div class="w-box"><b>📲 휴대폰 홈 화면 위젯</b>
+      <p>근무표를 저장하면 홈 화면 위젯도 저절로 바뀌어요. ${n ? `지금 홈 화면에 위젯이 ${n}개 있어요.` : '아직 홈 화면에 위젯이 없어요.'}</p>
+      ${can ? `<div class="btn-row"><button class="btn small primary" data-act="widget-pin">📲 ${n ? '위젯 하나 더 추가하기' : '홈 화면에 위젯 추가하기'}</button></div>`
+        : '<small>홈 화면 빈 곳을 길게 누름 → 위젯 → 나경이 일기 를 골라 추가해요</small>'}
+    </div>`;
   }
-  const fb = widgetReleaseURL();
-  // 위젯 앱이 있으면 바로 열리고, 없으면 앱 내려받는 곳(깃허브 Releases)으로 감
-  const intent = `intent://import?d=${link.split('d=')[1]}#Intent;scheme=nagyeongwidget;package=${WIDGET_PKG};`
-    + (fb ? `S.browser_fallback_url=${encodeURIComponent(fb)};` : '') + 'end';
-  refreshAll();
-  NAV.go(intent);
+  const rel = appReleaseURL();
+  return `<div class="w-box"><b>📲 휴대폰 홈 화면 위젯</b>
+    <p>홈 화면 위젯은 안드로이드용 「${esc(APP_NAME)}」 앱에서 쓸 수 있어요. 앱을 설치한 뒤, 여기서 <b>백업 파일 저장</b> → 앱에서 <b>백업 파일 불러오기</b>로 기록을 옮겨 주세요.</p>
+    ${rel ? `<div class="btn-row"><a class="btn small primary" href="${esc(rel)}" target="_blank" rel="noopener">안드로이드 앱 받기</a></div>` : ''}
+  </div>`;
 }
 
 // 근무 종류 추가·고치기
@@ -3819,14 +3852,7 @@ function renderSettings() {
       ${shiftTypes().map(t => `<button class="list-row" data-act="shift-type" data-code="${esc(t.code)}">${shiftChip(t.code)}
         <span class="lr-main"><b>${esc(t.name)}</b><small>${C.shiftTimeLabel(t) || (t.off ? '쉬는 날' : '시간 없음')}${t.off && C.shiftTimeLabel(t) ? ' · 쉬는 날' : ''}</small></span>${ic('right')}</button>`).join('')}
       <button class="btn small soft add-row" data-act="shift-type-add">${ic('plus')} 근무 종류 추가</button>
-      <div class="w-box">
-        <b>📲 휴대폰 홈 화면 위젯</b>
-        <p>「나경이 근무 위젯」 앱을 설치하면 홈 화면에서 ${esc(herName())}의 오늘·이번 주 근무를 볼 수 있어요 (안드로이드 전용). 근무표를 바꾼 뒤에는 '위젯으로 보내기'를 눌러 주세요.</p>
-        <div class="btn-row"><button class="btn small primary" data-act="widget-send">📲 위젯으로 보내기</button>
-          ${widgetReleaseURL() ? `<a class="btn small" href="${esc(widgetReleaseURL())}" target="_blank" rel="noopener">위젯 앱 받기</a>` : ''}
-          ${canShareText() ? '<button class="btn small" data-act="widget-share">공유로 보내기</button>' : ''}</div>
-        <small>${S.settings.widgetSentAt ? `마지막으로 보낸 때: ${esc(new Date(S.settings.widgetSentAt).toLocaleString('ko-KR'))}` : '아직 보낸 적이 없어요'}</small>
-      </div>
+      ${widgetBoxHTML()}
     </section>
     <section class="card"><div class="card-head"><h3>🎨 화면</h3></div>
       <div class="set-row"><span class="lbl"><b>테마</b></span>
@@ -3881,6 +3907,7 @@ async function fillStorageInfo() {
     if (u) u.textContent = est ? `${fmtBytes(est.usage)}${est.quota ? ` / 최대 ${fmtBytes(est.quota)}` : ''}` : '알 수 없음';
   } catch (e) { if (u) u.textContent = '알 수 없음'; }
   try {
+    if (APP) { if (p) p.textContent = '앱 안에 저장 ✅ (앱을 지우면 함께 지워져요)'; return; }
     const on = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false;
     if (p) p.textContent = on ? '켜짐 ✅' : '꺼짐 (앱으로 설치하면 켜지기 쉬워요)';
   } catch (e) { if (p) p.textContent = '알 수 없음'; }
@@ -4060,17 +4087,19 @@ async function doBackup(mode = 'save') {
   try { built = await buildBackup(); }
   catch (err) { hideBusy(); console.error(err); alertBox('백업 파일을 만들지 못했어요', String(err.message || err)); return; }
   hideBusy();
+  let ok = true;
   if (mode === 'share') {
     try {
       const file = new File([built.blob], built.name, { type: 'application/zip' });
       await navigator.share({ files: [file], title: `${APP_NAME} 백업` });
     } catch (err) {
       if (err && err.name === 'AbortError') { toast('공유를 취소했어요'); return; }
-      downloadBlob(built.blob, built.name);
+      ok = await downloadBlob(built.blob, built.name);
     }
   } else {
-    downloadBlob(built.blob, built.name);
+    ok = await downloadBlob(built.blob, built.name);
   }
+  if (!ok) return;
   await saveSettings({ lastBackupAt: Date.now() });
   refreshAll();
   toast(`백업 파일을 만들었어요 (${fmtBytes(built.blob.size)})`, 3500);
@@ -4322,8 +4351,9 @@ const ACTIONS = {
   'shift-edit': el => openShiftEditor(el.dataset.date || (S.view === 'calendar' ? S.selDate : C.today())),
   'shift-type': el => openShiftTypeEditor(el.dataset.code),
   'shift-type-add': () => openShiftTypeEditor(),
-  'widget-send': () => sendToWidget('open'),
-  'widget-share': () => sendToWidget('share'),
+  'widget-pin': () => {
+    try { if (APP) APP.pinWidget(); } catch (e) { toast('홈 화면 빈 곳을 길게 누른 뒤 위젯 → 나경이 일기를 골라 주세요', 4000); }
+  },
   'ev-filter': el => { S.evFilter = el.dataset.f; renderEvents(); },
   'new-event': () => openEventEditor(),
   'edit-event': el => openEventEditor(el.dataset.id),
@@ -4452,6 +4482,7 @@ function initChrome() {
     if (document.hidden) { S.hiddenAt = Date.now(); return; }
     if (S.settings.pinHash && S.hiddenAt && Date.now() - S.hiddenAt > 60000) Lock.show();
     checkDayChange();
+    if (APP && !overlays.length && (S.view === 'home' || S.view === 'settings')) render();
   });
   setInterval(checkDayChange, 60000);
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
@@ -4501,7 +4532,7 @@ async function boot() {
   else if (S.settings.pinHash) Lock.show();
   registerSW();
   if (S.entries.length) requestPersist();
-  window.__ourDays = { version: APP_VERSION, S, C, NAV, widgetText, widgetLink };
+  window.__ourDays = { version: APP_VERSION, S, C, widgetText, inApp: !!APP, saveFile: downloadBlob };
 }
 boot();
 })();
