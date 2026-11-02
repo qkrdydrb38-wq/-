@@ -2,8 +2,36 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>우리의 날들</title>
+<meta name="viewport" id="vp" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<script>
+/* 화면 맞춤: 휴대폰 '글자 크기'나 '화면 확대'를 크게 해 두면 크롬이 앱을 360px보다 좁게 그려서
+   글자가 줄바꿈되고 확대된 것처럼 보인다. 그럴 때는 360px 휴대폰과 같은 모양으로 그린 뒤
+   화면 폭에 딱 맞게 줄여서 보여 준다. (태블릿·넓은 휴대폰은 그대로) */
+(function () {
+  var MIN = 360;
+  var vp = document.getElementById('vp');
+  var TAIL = ', viewport-fit=cover, interactive-widget=resizes-content';
+  var DEV = 'width=device-width, initial-scale=1' + TAIL;
+  window.__vp = { real: 0, fitted: false };
+  function fit() {
+    vp.setAttribute('content', DEV);
+    var w = document.documentElement.clientWidth || window.innerWidth;
+    window.__vp = { real: w, fitted: false };
+    if (w && w < MIN) {
+      vp.setAttribute('content', 'width=' + MIN + ', initial-scale=' + (w / MIN).toFixed(4) + TAIL);
+      window.__vp.fitted = true;
+    }
+  }
+  fit();
+  // 휴대폰을 가로/세로로 돌리면 다시 맞추기
+  var mq = window.matchMedia && window.matchMedia('(orientation: portrait)');
+  var refit = function () { setTimeout(fit, 60); };
+  if (mq && mq.addEventListener) mq.addEventListener('change', refit);
+  else if (mq && mq.addListener) mq.addListener(refit);
+  window.addEventListener('orientationchange', refit);
+})();
+</script>
+<title>나경이 일기</title>
 <meta name="description" content="그녀와의 하루하루를 기록하는 우리만의 앱">
 <meta name="theme-color" content="#FBF6F3">
 <meta name="color-scheme" content="light dark">
@@ -12,7 +40,7 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="우리의 날들">
+<meta name="apple-mobile-web-app-title" content="나경이 일기">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 /* ==========================================================================
@@ -91,7 +119,7 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; }
   width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent; color: var(--text);
   display: grid; place-items: center; flex: none;
 }
-.icon-btn:hover { background: var(--surface-2); }
+@media (hover: hover) { .icon-btn:hover { background: var(--surface-2); } }
 .link { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; font-size: 14px; padding: 8px 4px; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn-col { display: grid; gap: 8px; }
@@ -164,7 +192,7 @@ body[data-view="settings"] .fab { display: none; }
   display: flex; align-items: center; gap: 13px; height: 50px; padding: 0 14px; border-radius: 13px;
   border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 16px; text-align: left;
 }
-.side-btn:hover { background: var(--surface-2); }
+@media (hover: hover) { .side-btn:hover { background: var(--surface-2); } }
 .side-btn.on { background: var(--accent-soft); color: var(--accent); }
 .side-foot { margin-top: auto; padding: 12px 8px 0; color: var(--faint); font-size: 12.5px; }
 
@@ -293,7 +321,7 @@ body[data-view="settings"] .fab { display: none; }
   position: relative; min-height: 66px; border: 0; border-radius: 12px; background: transparent; color: var(--text);
   padding: 3px 2px 4px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; text-align: left; overflow: hidden;
 }
-.cal-cell:hover { background: var(--surface-2); }
+@media (hover: hover) { .cal-cell:hover { background: var(--surface-2); } }
 .cal-cell.out { opacity: .35; }
 .cal-num {
   width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; margin-left: 1px;
@@ -558,7 +586,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
 }
 .choice-btn b { display: block; font-size: 16px; }
 .choice-btn small { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
-.choice-btn:hover { border-color: var(--accent); }
+@media (hover: hover) { .choice-btn:hover { border-color: var(--accent); } }
 .sum { margin: 10px 0 0; padding-left: 20px; font-weight: 600; }
 .yp { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 14px; }
 .yp b { font-size: 22px; min-width: 100px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -656,6 +684,248 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
+/* ==========================================================================
+   교대 근무표
+   ========================================================================== */
+:root {
+  --sc-sun-b: #FFC94D; --sc-sun-f: #4A3200;
+  --sc-orange-b: #E36A24; --sc-orange-f: #FFFFFF;
+  --sc-rose-b: #D9466F; --sc-rose-f: #FFFFFF;
+  --sc-violet-b: #7B4FE0; --sc-violet-f: #FFFFFF;
+  --sc-navy-b: #33449E; --sc-navy-f: #FFFFFF;
+  --sc-teal-b: #138479; --sc-teal-f: #FFFFFF;
+  --sc-green-b: #2E8B4A; --sc-green-f: #FFFFFF;
+  --sc-gray-b: #6E6E78; --sc-gray-f: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sc-sun-b: #E3AE3A; --sc-sun-f: #251800;
+    --sc-orange-b: #FF9A5C; --sc-orange-f: #2E1200;
+    --sc-rose-b: #FF85A6; --sc-rose-f: #3A0B1A;
+    --sc-violet-b: #A98BF7; --sc-violet-f: #1C0E3A;
+    --sc-navy-b: #7A8CF0; --sc-navy-f: #0E1440;
+    --sc-teal-b: #5FD3C4; --sc-teal-f: #06302B;
+    --sc-green-b: #78CF8A; --sc-green-f: #0F2A12;
+    --sc-gray-b: #A9A9B4; --sc-gray-f: #1C1C22;
+  }
+}
+:root[data-theme="dark"] {
+  --sc-sun-b: #E3AE3A; --sc-sun-f: #251800;
+  --sc-orange-b: #FF9A5C; --sc-orange-f: #2E1200;
+  --sc-rose-b: #FF85A6; --sc-rose-f: #3A0B1A;
+  --sc-violet-b: #A98BF7; --sc-violet-f: #1C0E3A;
+  --sc-navy-b: #7A8CF0; --sc-navy-f: #0E1440;
+  --sc-teal-b: #5FD3C4; --sc-teal-f: #06302B;
+  --sc-green-b: #78CF8A; --sc-green-f: #0F2A12;
+  --sc-gray-b: #A9A9B4; --sc-gray-f: #1C1C22;
+}
+.sc-sun { --sb: var(--sc-sun-b); --sf: var(--sc-sun-f); }
+.sc-orange { --sb: var(--sc-orange-b); --sf: var(--sc-orange-f); }
+.sc-rose { --sb: var(--sc-rose-b); --sf: var(--sc-rose-f); }
+.sc-violet { --sb: var(--sc-violet-b); --sf: var(--sc-violet-f); }
+.sc-navy { --sb: var(--sc-navy-b); --sf: var(--sc-navy-f); }
+.sc-teal { --sb: var(--sc-teal-b); --sf: var(--sc-teal-f); }
+.sc-green { --sb: var(--sc-green-b); --sf: var(--sc-green-f); }
+.sc-gray { --sb: var(--sc-gray-b); --sf: var(--sc-gray-f); }
+
+.s-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: none;
+  min-width: 24px; height: 24px; padding: 0 7px; border-radius: 8px;
+  background: var(--sb); color: var(--sf); font-size: 13px; font-weight: 800; white-space: nowrap; line-height: 1;
+}
+.s-chip b { font-weight: 800; }
+
+/* 달력 칸 */
+.cal-shift {
+  display: block; margin: 1px 0 0; border-radius: 5px; text-align: center;
+  background: var(--sb); color: var(--sf); font-size: 10.5px; font-weight: 800; line-height: 16px;
+  white-space: nowrap; overflow: hidden;
+}
+.cal-shift i { display: none; font-style: normal; font-weight: 700; }
+@media (min-width: 600px) {
+  .cal-shift { font-size: 12px; line-height: 20px; border-radius: 6px; }
+  .cal-shift i { display: inline; }
+}
+.cal-foot {
+  width: 100%; margin-top: 12px; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px;
+  border: 0; border-radius: 14px; background: var(--surface-2); color: var(--text); text-align: left; min-height: 50px;
+}
+.cal-foot .cf-l { font-weight: 800; font-size: 14.5px; white-space: nowrap; }
+.cal-foot .cf-stats { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; font-size: 13.5px; }
+.cal-foot .ic { color: var(--muted); width: 18px; height: 18px; }
+.stat { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat .s-chip { min-width: 22px; height: 22px; font-size: 12px; padding: 0 5px; border-radius: 7px; }
+
+/* 날짜 패널 · 홈 */
+.shift-row {
+  width: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 12px;
+  border: 0; border-radius: 13px; background: var(--surface-2); color: var(--text); text-align: left; font-size: 14.5px;
+}
+.shift-row .ic { width: 18px; height: 18px; color: var(--muted); }
+.sr-label { color: var(--muted); font-weight: 800; font-size: 13.5px; }
+.sr-time { color: var(--muted); font-weight: 600; font-size: 13.5px; }
+.sr-act { color: var(--accent); font-weight: 800; font-size: 13.5px; }
+.shift-today { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.shift-today .s-chip { height: 30px; font-size: 15px; padding: 0 11px; border-radius: 10px; }
+.week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.ws-day {
+  border: 0; border-radius: 12px; background: var(--surface-2); color: var(--text); padding: 7px 0 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
+}
+.ws-day small { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.ws-day > b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ws-day.sun > b { color: var(--sun); } .ws-day.sat > b { color: var(--sat); }
+.ws-day.today { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.ws-day.today small { color: var(--accent); }
+.ws-day .s-chip { min-width: 26px; height: 24px; padding: 0 4px; }
+.ws-none { height: 24px; line-height: 24px; color: var(--faint); font-weight: 800; }
+
+/* 근무표 입력 화면 */
+.se { display: grid; gap: 16px; grid-template-areas: "imp" "main" "photo"; }
+.se-imp { grid-area: imp; }
+.se-main { grid-area: main; min-width: 0; }
+.se-photo { grid-area: photo; min-width: 0; }
+@media (min-width: 900px) {
+  .se { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-areas: "main imp" "main photo"; align-items: start; column-gap: 22px; }
+}
+.se-sub { margin: 6px 0 0; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+.se-head { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.se-title { font-size: 19px; font-weight: 800; min-width: 128px; text-align: center; font-variant-numeric: tabular-nums; }
+.se-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; margin: 2px 0 10px; min-height: 24px; font-size: 14px; align-items: center; }
+.se-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.se-cell {
+  position: relative; border: 0; border-radius: 11px; background: var(--surface-2); color: var(--text);
+  min-height: 54px; padding: 4px 1px 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
+}
+.se-num { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.se-cell.sun .se-num { color: var(--sun); } .se-cell.sat .se-num { color: var(--sat); }
+.se-cell.today { background: var(--accent-soft); }
+.se-cell.cur { background: var(--surface); box-shadow: inset 0 0 0 2.5px var(--accent); }
+.se-cell.imp::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--k-custom); }
+.se-cell .s-chip { min-width: 26px; height: 24px; padding: 0 4px; }
+.se-empty { height: 24px; }
+.se-hint { text-align: center; color: var(--muted); font-size: 13.5px; font-weight: 600; margin: 0; padding: 10px 0 8px; min-height: 21px; }
+.se-hint b { color: var(--text); }
+.se-pad { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 6px; }
+.se-tools { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+.se-dock { background: var(--surface); }
+@media (max-width: 899px) {
+  .se-dock { position: sticky; bottom: 0; z-index: 2; padding: 2px 0 6px; box-shadow: 0 -12px 12px -10px rgba(0, 0, 0, .12); }
+}
+.se-key {
+  border: 0; border-radius: 14px; min-height: 56px; padding: 6px 4px; background: var(--sb); color: var(--sf);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; transition: transform .08s;
+}
+.se-key b { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.se-key small { font-size: 12px; font-weight: 700; }
+.se-key:active { transform: scale(.94); }
+.se-ph-title { margin: 0 0 8px; font-weight: 800; font-size: 14.5px; }
+.se-ph-img { display: block; width: 100%; border: 0; padding: 0; border-radius: 14px; overflow: hidden; background: var(--surface-2); margin-bottom: 8px; }
+.se-ph-img img { display: block; width: 100%; max-height: 360px; object-fit: contain; }
+.se-ph-add {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-align: left;
+  border: 2px dashed var(--surface-3); border-radius: 14px; background: transparent; color: var(--text);
+}
+.se-ph-add .ic { color: var(--muted); width: 26px; height: 26px; }
+.se-ph-add b { display: block; font-size: 15px; }
+.se-ph-add small { display: block; color: var(--muted); font-size: 13px; font-weight: 500; }
+
+/* Claude로 읽기 */
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.steps > li { counter-increment: step; position: relative; padding-left: 42px; margin-bottom: 22px; }
+.steps > li::before {
+  content: counter(step); position: absolute; left: 0; top: -2px; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 15px;
+}
+.steps > li > b { display: block; font-size: 16px; margin-bottom: 4px; }
+.steps > li > small { display: block; color: var(--muted); font-size: 13.5px; margin: 6px 0; }
+.steps .btn-col { margin: 10px 0 6px; }
+.steps textarea { margin: 6px 0 8px; min-height: 140px; font-size: 16px; }
+.im-prompt { margin-top: 6px; }
+.im-prompt summary { color: var(--accent); font-weight: 800; font-size: 13.5px; cursor: pointer; padding: 6px 0; }
+.im-prompt pre {
+  white-space: pre-wrap; word-break: keep-all; background: var(--surface-2); border-radius: 12px; padding: 12px 14px;
+  font-family: inherit; font-size: 13.5px; line-height: 1.6; margin: 6px 0 0;
+}
+.im-msg { color: var(--danger); font-weight: 700; margin: 0; }
+.im-msg:empty { display: none; }
+
+/* 색 고르기 */
+.swatch i { display: block; width: 26px; height: 26px; border-radius: 50%; background: var(--sb); }
+.shift-row { flex-wrap: nowrap; }
+.shift-row .s-chip { flex: none; }
+.shift-row .sr-time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shift-row .sr-label, .shift-row .sr-act { flex: none; white-space: nowrap; }
+@media (max-width: 420px) { .se-hint-more { display: none; } }
+@media (max-width: 899px) and (max-height: 780px) {
+  .se-sub { display: none; }
+  .se-cell { min-height: 46px; }
+  .se-stats { margin-bottom: 6px; }
+}
+/* 한 줄 화면(휴대폰)에서 긴 내용이 화면 폭을 넓히지 않게 */
+@media (max-width: 899px) {
+  .home, .cal-layout, .ev-layout, .pf-grid, .set-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.cal-layout > *, .home > *, .ev-layout > *, .pf-grid > *, .set-grid > * { min-width: 0; }
+.shift-row { min-width: 0; max-width: 100%; }
+
+/* 달력 머리줄 글자가 두 줄로 쪼개지지 않게 */
+.cal-title, .cal-head .btn { white-space: nowrap; }
+@media (max-width: 399px) {
+  .cal-title { font-size: 18px; padding: 6px 4px; }
+  .cal-head .icon-btn { width: 40px; }
+}
+
+/* ==========================================================================
+   그녀 정보: 한 칸씩 입력 · 하나씩 등록
+   ========================================================================== */
+.card-hint { color: var(--faint); font-size: 12.5px; font-weight: 700; }
+.kv.tap {
+  grid-template-columns: 96px minmax(0, 1fr) 20px; cursor: pointer; align-items: center;
+  margin: 0 -10px; padding: 11px 10px;
+}
+.kv.tap:first-child { padding-top: 8px; }
+.kv.tap:active { background: var(--surface-2); }
+@media (hover: hover) { .kv.tap:hover { background: var(--surface-2); } }
+.kv.tap .k { padding-top: 0; }
+.kv.tap.none .k { color: var(--faint); }
+.kv-add { display: inline-flex; align-items: center; gap: 4px; color: var(--faint); font-weight: 700; font-size: 14.5px; }
+.kv-add .ic { width: 16px; height: 16px; }
+.kv-go { color: var(--faint); display: grid; place-items: center; }
+.kv-go .ic { width: 16px; height: 16px; }
+
+.ig + .ig { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ig-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ig-e { font-size: 18px; }
+.ig-head b { font-size: 15px; }
+.ig-head small { color: var(--muted); font-weight: 700; font-size: 12.5px; }
+.ig-add {
+  margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--muted);
+  display: grid; place-items: center;
+}
+.ig-add .ic { width: 17px; height: 17px; }
+.tag.item {
+  border: 0; font: inherit; font-size: 14.5px; font-weight: 700; min-height: 36px; padding: 5px 13px; text-align: left;
+  display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.3; border-radius: 14px;
+}
+.tag.item small { font-size: 12px; font-weight: 600; opacity: .78; }
+.tag.item:active { transform: scale(.97); }
+.ig-more { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ig + .ig-more, .ig-more:not(:first-child) { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ig-more-t { width: 100%; color: var(--muted); font-size: 12.5px; font-weight: 700; }
+.chip-add {
+  border: 1.5px dashed var(--surface-3); background: transparent; color: var(--muted); border-radius: 999px;
+  min-height: 36px; padding: 0 13px; font-size: 13.5px; font-weight: 700;
+}
+.chip-add b { color: var(--accent); }
+.chip-add:active { background: var(--surface-2); }
+.cat-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.cat { min-height: 38px; }
+.it-label { font-size: 14px; font-weight: 800; color: var(--muted); }
+.it-hint { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
+.it-have-t { margin: 0 0 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.it-have:empty { display: none; }
+
 </style>
 </head>
 <body>
@@ -663,7 +933,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   <aside class="side" aria-label="메뉴">
     <div class="brand">
       <div class="brand-logo"><i data-ic="heartFill"></i></div>
-      <div><b>우리의 날들</b><small id="brand-sub">우리의 기록</small></div>
+      <div><b>나경이 일기</b><small id="brand-sub">우리의 기록</small></div>
     </div>
     <button class="btn primary big side-new" data-act="new-entry"><i data-ic="plus"></i>새 기록</button>
     <nav class="side-nav" style="display:grid;gap:4px">
@@ -678,7 +948,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   </aside>
 
   <header class="topbar">
-    <h1 id="tb-title">우리의 날들</h1>
+    <h1 id="tb-title">나경이 일기</h1>
     <button class="icon-btn tb-set" data-act="go" data-view="settings" aria-label="설정"><i data-ic="settings"></i></button>
   </header>
 
@@ -906,6 +1176,213 @@ const Core = (() => {
     return n > 0 ? `D-${n}` : `D+${-n}`;
   }
 
+  /* ---------- 교대 근무 ---------- */
+  // 기본 근무 종류 (설정에서 이름·시간·색을 바꿀 수 있음)
+  const DEFAULT_SHIFT_TYPES = [
+    { code: 'D', name: '데이', start: '07:00', end: '15:00', color: 'sun', off: false },
+    { code: 'E', name: '이브닝', start: '15:00', end: '23:00', color: 'violet', off: false },
+    { code: 'N', name: '나이트', start: '23:00', end: '07:00', color: 'navy', off: false },
+    { code: 'O', name: '오프', start: '', end: '', color: 'green', off: true },
+  ];
+  // 근무표에 흔히 쓰이는 다른 표기 → 기본 기호
+  const SHIFT_ALIASES = {
+    D: ['D', 'DAY', 'DY', '데이', '주간', '주'],
+    E: ['E', 'EVE', 'EVENING', 'EV', '이브닝', '이브', '저녁'],
+    N: ['N', 'NIGHT', 'NT', '나이트', '야간', '밤'],
+    O: ['O', 'OFF', 'OF', '오프', '휴무', '휴', '쉼', '/'],
+  };
+
+  // 글자 하나(토큰)를 근무 기호로 바꾸기. 못 찾으면 undefined, '?'면 '?', 비움이면 null
+  function resolveShift(token, types) {
+    let t = String(token || '').trim().replace(/\s*\([^)]*\)\s*$/, '');
+    t = t.replace(/^[\[(「"'`]+|[\])」"'`.,;:]+$/g, '').trim();
+    if (!t) return undefined;
+    if (t === '?' || t === '？') return '?';
+    if (t === '-' || t === '–' || t === '·' || t === '없음' || t === '비움') return null;
+    const up = t.toUpperCase();
+    const list = Array.isArray(types) ? types : [];
+    const direct = list.find(x => String(x.code).toUpperCase() === up || x.name === t);
+    if (direct) return direct.code;
+    for (const [code, names] of Object.entries(SHIFT_ALIASES)) {
+      if (!names.includes(up) && !names.includes(t)) continue;
+      if (list.some(x => x.code === code)) return code;
+      if (code === 'O') { const off = list.find(x => x.off); if (off) return off.code; }
+    }
+    return undefined;
+  }
+
+  /*
+    Claude가 준 답(또는 직접 쓴 글)을 읽어 날짜별 근무로 바꾸기
+    받을 수 있는 모양:
+      근무표 2026-11      ← 연·월 (2026년 11월 도 가능)
+      1 D                 ← 일 + 기호   (1일 D, 1: D, 1(일) D 도 가능)
+      11/2 E              ← 월/일 + 기호
+      2026-11-03 N        ← 연-월-일 + 기호
+      D D E N N O O       ← 기호만 나열하면 다음 날부터 차례대로
+      2026-11: DDENNOO    ← 연·월 뒤에 바로 나열
+    결과: { map: {날짜: 기호|null}, count, unknown(? 칸 수), bad(못 읽은 줄) }
+  */
+  function parseShiftText(text, types, opts = {}) {
+    let year = opts.year || new Date().getFullYear();
+    let month = opts.month || 1;
+    let next = 1;            // 기호만 나열할 때 다음에 채울 날
+    const map = {};
+    const bad = [];
+    let unknown = 0;
+    let count = 0;
+    const put = (y, m, d, token, line) => {
+      const date = toStr(y, m, d);
+      if (!isValid(date)) { bad.push(line); return false; }
+      const code = resolveShift(token, types);
+      if (code === undefined) { bad.push(line); return false; }
+      if (code === '?') { unknown++; return true; }
+      map[date] = code;
+      count++;
+      return true;
+    };
+    const yearFor = m => (month >= 11 && m <= 2 ? year + 1 : month <= 2 && m >= 11 ? year - 1 : year);
+    const seq = (tokens, line) => {
+      for (const tk of tokens) {
+        if (next > daysInMonth(year, month)) { bad.push(line); break; }
+        put(year, month, next, tk, line);
+        next++;
+      }
+    };
+    // 띄어쓰기 없이 붙은 기호 (DDENNOO) 나누기
+    const splitCompact = s => {
+      if (/\s|,/.test(s.trim())) return s.trim().split(/[\s,]+/).filter(Boolean);
+      const chars = Array.from(s.trim());
+      if (chars.length > 1 && chars.every(c => resolveShift(c, types) !== undefined)) return chars;
+      return [s.trim()];
+    };
+    const allCodes = tokens => tokens.length > 0 && tokens.every(t => resolveShift(t, types) !== undefined);
+
+    const lines = String(text || '').replace(/\r/g, '').split('\n');
+    for (const raw of lines) {
+      const line = raw.replace(/[　\t]/g, ' ').trim();
+      if (!line || line.startsWith('```')) continue;
+      let m;
+      // 1) 2026-11-03 N
+      if ((m = line.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?\s*(?:\([^)]*\))?\s*[:：=\-–]?\s*(\S+)\s*$/))) {
+        put(+m[1], +m[2], +m[3], m[4], raw);
+        year = +m[1]; month = +m[2]; next = +m[3] + 1;
+        continue;
+      }
+      // 2) 연·월 머리줄 (뒤에 기호가 나열될 수도 있음)
+      if ((m = line.match(/^[^\d]*?(\d{4})\s*[-./년]\s*(\d{1,2})\s*월?\s*(?:근무표|근무)?\s*[:：]?\s*(.*)$/))) {
+        const mm = +m[2];
+        if (mm >= 1 && mm <= 12) {
+          year = +m[1]; month = mm; next = 1;
+          const rest = m[3].trim();
+          if (rest) {
+            const tokens = splitCompact(rest);
+            if (allCodes(tokens)) seq(tokens, raw); else bad.push(raw);
+          }
+          continue;
+        }
+      }
+      // 3) 11/2 E , 11월 2일 E
+      if ((m = line.match(/^(\d{1,2})\s*[\/.월]\s*(\d{1,2})\s*일?\s*(?:\([^)]*\))?\s*[:：=\-–]?\s*(\S+)\s*$/))) {
+        const mm = +m[1];
+        if (mm >= 1 && mm <= 12) {
+          const yy = yearFor(mm);
+          put(yy, mm, +m[2], m[3], raw);
+          year = yy; month = mm; next = +m[2] + 1;
+          continue;
+        }
+      }
+      // 4) 1 D , 1일 D , 1(일) D , 1: D
+      if ((m = line.match(/^(\d{1,2})\s*일?\s*(?:\([^)]*\))?\s*[:：=\-–.]?\s*(\S+)\s*$/))) {
+        put(year, month, +m[1], m[2], raw);
+        next = +m[1] + 1;
+        continue;
+      }
+      // 5) 기호만 나열
+      const tokens = splitCompact(line);
+      if (allCodes(tokens)) { seq(tokens, raw); continue; }
+      // 숫자가 있는데 못 읽은 줄만 알려 줌 (설명 문장은 조용히 넘김)
+      if (/\d/.test(line)) bad.push(raw);
+    }
+    return { map, count, unknown, bad };
+  }
+
+  // 근무 시간 글자 (예: 23:00~07:00 (다음 날))
+  function shiftTimeLabel(t) {
+    if (!t || !t.start || !t.end) return '';
+    return `${t.start}~${t.end}${t.end <= t.start ? ' (다음 날)' : ''}`;
+  }
+
+  // from 날짜부터 days일 안에서 다음 쉬는 날
+  function nextOff(shifts, types, from, days = 120) {
+    const offCodes = new Set((types || []).filter(t => t.off).map(t => t.code));
+    if (!offCodes.size || !shifts) return null;
+    for (let i = 0; i <= days; i++) {
+      const d = addDays(from, i);
+      if (offCodes.has(shifts[d])) return { date: d, dday: i };
+    }
+    return null;
+  }
+
+  // 한 달 근무 개수 { D: 8, E: 6, ... }
+  function monthShiftStats(shifts, y, m) {
+    const out = {};
+    const prefix = `${y}-${pad(m)}-`;
+    for (const [d, c] of Object.entries(shifts || {})) {
+      if (d.startsWith(prefix) && c) out[c] = (out[c] || 0) + 1;
+    }
+    return out;
+  }
+
+  /* ---------- 그녀 정보: 좋아하는 것 · 싫어하는 것 (하나씩 등록) ---------- */
+  const LIKE_CATS = [
+    { k: '음식', e: '🍜', ph: '예) 떡볶이' },
+    { k: '음료·커피', e: '☕', ph: '예) 아이스 바닐라라떼' },
+    { k: '디저트·간식', e: '🍰', ph: '예) 딸기 케이크' },
+    { k: '색깔', e: '🎨', ph: '예) 연보라' },
+    { k: '꽃', e: '💐', ph: '예) 튤립' },
+    { k: '노래·가수', e: '🎵', ph: '예) 아이유' },
+    { k: '영화·드라마', e: '🎬', ph: '예) 라라랜드' },
+    { k: '브랜드', e: '👜', ph: '예) 브랜드 이름' },
+    { k: '취미', e: '🎯', ph: '예) 필라테스' },
+    { k: '장소', e: '📍', ph: '예) 한강 공원' },
+    { k: '기타', e: '✨', ph: '예) 고양이, 바다' },
+  ];
+  const DISLIKE_CATS = [
+    { k: '싫어하는 것', e: '🙅', ph: '예) 벌레, 공포영화' },
+    { k: '못 먹는 음식', e: '🚫', ph: '예) 오이' },
+    { k: '알레르기', e: '⚠️', ph: '예) 땅콩' },
+  ];
+  // 예전 버전(칸에 한꺼번에 적던 방식)의 항목 → 새 목록
+  const OLD_ITEM_FIELDS = [
+    ['likeFood', 'likeItems', '음식'], ['likeDrink', 'likeItems', '음료·커피'], ['likeColor', 'likeItems', '색깔'],
+    ['likeFlower', 'likeItems', '꽃'], ['likeMusic', 'likeItems', '노래·가수'], ['likeMovie', 'likeItems', '영화·드라마'],
+    ['likeBrand', 'likeItems', '브랜드'], ['hobby', 'likeItems', '취미'], ['likes', 'likeItems', '기타'],
+    ['dislikes', 'dislikeItems', '싫어하는 것'], ['cantEat', 'dislikeItems', '못 먹는 음식'],
+  ];
+  function splitItems(v) {
+    const arr = Array.isArray(v) ? v : String(v || '').split(/[,，、\n]/);
+    return arr.map(s => String(s == null ? '' : s).trim()).filter(Boolean);
+  }
+  // 예전 칸에 적힌 내용을 하나씩 나눠 목록으로 옮김. 바뀐 게 있으면 true
+  function migrateProfileItems(p, makeId) {
+    let changed = false;
+    for (const key of ['likeItems', 'dislikeItems']) {
+      if (!Array.isArray(p[key])) { p[key] = []; changed = true; }
+      const ok = p[key].filter(x => x && typeof x === 'object' && String(x.text || '').trim());
+      if (ok.length !== p[key].length) { p[key] = ok; changed = true; }
+    }
+    for (const [old, list, cat] of OLD_ITEM_FIELDS) {
+      const items = splitItems(p[old]);
+      if (!items.length) continue;
+      for (const text of items) {
+        if (!p[list].some(x => x.cat === cat && x.text === text)) p[list].push({ id: makeId(), cat, text, memo: '' });
+      }
+      p[old] = Array.isArray(p[old]) ? [] : '';
+      changed = true;
+    }
+    return changed;
+  }
+
   /* ---------- 한국어 조사 (와/과, 을/를 …) ---------- */
   function hasBatchim(word) {
     const ch = String(word || '').trim().slice(-1);
@@ -1122,6 +1599,8 @@ const Core = (() => {
   return {
     WEEK, pad, toStr, parse, isLeap, daysInMonth, isValid, toDays, fromDays, addDays, diffDays, today, weekday,
     sameDayInYear, age, dayCount, dateOfDay, eventsBetween, nextYearly, upcoming, ddayLabel, COUPLE_MAIN, COUPLE_14,
+    LIKE_CATS, DISLIKE_CATS, OLD_ITEM_FIELDS, splitItems, migrateProfileItems,
+    DEFAULT_SHIFT_TYPES, SHIFT_ALIASES, resolveShift, parseShiftText, shiftTimeLabel, nextOff, monthShiftStats,
     hasBatchim, josa, sha256Hex, crc32, makeZip, readZip,
   };
 })();
@@ -1131,12 +1610,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Core;
 </script>
 <script>
 /* ==========================================================================
-   app.js — 화면과 동작 (우리의 날들)
+   app.js — 화면과 동작 (나경이 일기)
    ========================================================================== */
 (() => {
 'use strict';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.2.0';
+const APP_NAME = '나경이 일기';   // 화면에 보이는 앱 이름 (저장소·내부 이름 our-days 는 그대로 둠 → 기존 기록 유지)
 const C = Core;
 
 /* ==========================================================================
@@ -1269,19 +1749,21 @@ const defaultSettings = () => ({
   showMilestones: true, showCoupleDays: true, show14Days: false,
   theme: 'auto', photoQuality: 'normal',
   pinHash: '', pinSalt: '', pinHint: '', lastBackupAt: 0, installDismissed: false,
+  shiftOn: true, shiftTypes: C.DEFAULT_SHIFT_TYPES.map(x => ({ ...x })),
 });
 const defaultProfile = () => ({
   name: '', nickname: '', birthday: '', phone: '', mbti: '', bloodType: '', height: '', job: '', address: '',
   sizeTop: '', sizeBottom: '', sizeShoe: '', sizeRing: '', sizeEtc: '',
   likeFood: '', likeDrink: '', likeColor: '', likeFlower: '', likeMusic: '', likeMovie: '', likeBrand: '', hobby: '',
   likes: [], dislikes: [], cantEat: [], family: [], wishlist: [], customFields: [], memo: '',
+  likeItems: [], dislikeItems: [],   // 좋아하는 것·싫어하는 것: [{ id, cat(종류), text, memo }] (위 like… 칸은 예전 버전용)
 });
 
 const S = {
-  settings: defaultSettings(), profile: defaultProfile(), entries: [], events: [],
+  settings: defaultSettings(), profile: defaultProfile(), entries: [], events: [], shifts: {},
   view: 'home', calY: 2026, calM: 1, selDate: '', lastToday: '',
   recQuery: '', recMode: 'list', recLimit: 40, photoLimit: 120, photoItems: [],
-  evFilter: 'all', memPid: null, avatarURL: '', installEvt: null, swiped: 0, hiddenAt: 0,
+  evFilter: 'all', lastCat: {}, memPid: null, avatarURL: '', installEvt: null, swiped: 0, hiddenAt: 0,
   live: new Set(),
 };
 
@@ -1302,9 +1784,14 @@ async function loadAll() {
   for (const k of ['likes', 'dislikes', 'cantEat', 'family', 'wishlist', 'customFields']) {
     if (!Array.isArray(S.profile[k])) S.profile[k] = [];
   }
+  // 예전 방식(한 칸에 여러 개)으로 적은 좋아하는 것 등을 하나씩 나눠 옮기기
+  if (C.migrateProfileItems(S.profile, uid)) await kvSet('profile', S.profile);
   S.entries = (await dbAll('entries')).filter(e => e && e.id && C.isValid(e.date)).map(normEntry);
   sortEntries();
   S.events = (await dbAll('events')).filter(e => e && e.id);
+  if (!Array.isArray(S.settings.shiftTypes) || !S.settings.shiftTypes.length) S.settings.shiftTypes = C.DEFAULT_SHIFT_TYPES.map(x => ({ ...x }));
+  const sh = await kvGet('shifts', {});
+  S.shifts = sh && typeof sh === 'object' ? sh : {};
   setAvatarURL(await kvGet('avatar', null));
 }
 async function saveSettings(patch) {
@@ -1582,6 +2069,9 @@ function fieldHTML(f, v) {
     case 'seg':
       return `<div class="field">${lab}<div class="seg" data-k="${f.k}" data-v="${esc(v)}">${f.options.map(([val, l]) =>
         `<button type="button" data-v="${esc(val)}" class="${val === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`;
+    case 'swatch':
+      return `<div class="field">${lab}<div class="moods swatches" data-k="${f.k}" data-v="${esc(v || '')}">${f.options.map(([val, l]) =>
+        `<button type="button" class="mood swatch sc-${val}${val === v ? ' on' : ''}" data-v="${val}" aria-label="${esc(l)}" title="${esc(l)}"><i></i></button>`).join('')}</div></div>`;
     case 'emoji':
       return `<div class="field">${lab}<div class="moods" data-k="${f.k}" data-v="${esc(v || '')}" data-toggle="${f.toggle ? 1 : 0}">${f.options.map(o =>
         `<button type="button" class="mood${o === v ? ' on' : ''}" data-v="${o}" aria-label="${o}">${o}</button>`).join('')}</div></div>`;
@@ -1666,8 +2156,8 @@ function openFormSheet({ title, fields, values = {}, onSave, onDelete, saveLabel
   });
   const form = $('form', sh.body);
   bindForm(form, values, () => { dirty = true; });
-  form.addEventListener('submit', e => e.preventDefault());
   const saveBtn = $('.save-btn', sh.el);
+  form.addEventListener('submit', e => { e.preventDefault(); saveBtn.click(); });
   saveBtn.addEventListener('click', async () => {
     if (saveBtn.disabled) return;
     saveBtn.disabled = true;
@@ -1698,7 +2188,7 @@ function openFormSheet({ title, fields, values = {}, onSave, onDelete, saveLabel
 /* ==========================================================================
    7. 화면 이동
    ========================================================================== */
-const VIEW_TITLES = { home: '우리의 날들', calendar: '달력', records: '기록', events: '기념일', profile: '', settings: '설정' };
+const VIEW_TITLES = { home: APP_NAME, calendar: '달력', records: '기록', events: '기념일', profile: '', settings: '설정' };
 
 function go(view) {
   if (view === S.view) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
@@ -1729,7 +2219,7 @@ function setView(view) {
 function renderChrome() {
   const title = S.view === 'profile' ? herName() : VIEW_TITLES[S.view];
   $('#tb-title').textContent = title;
-  document.title = S.view === 'home' ? '우리의 날들' : `${title} · 우리의 날들`;
+  document.title = S.view === 'home' ? APP_NAME : `${title} · ${APP_NAME}`;
   const st = S.settings;
   let sub = '우리의 기록';
   if (C.isValid(st.startDate)) {
@@ -1858,7 +2348,7 @@ function renderHome() {
       : `<div class="day-empty"><p>아직 기록이 없어요.<br>오늘 있었던 일부터 남겨 볼까요?</p>
         <button class="btn primary" data-act="new-entry">${ic('plus')} 첫 기록 남기기</button></div>`}</section>`;
 
-  el.innerHTML = `<div class="home"><div class="col">${banner}${hero}${quick}${upCard}</div><div class="col">${mem}${recCard}</div></div>`;
+  el.innerHTML = `<div class="home"><div class="col">${banner}${hero}${quick}${shiftCardHTML()}${upCard}</div><div class="col">${mem}${recCard}</div></div>`;
   hydrate(el);
 }
 
@@ -1877,6 +2367,7 @@ function renderCalendar() {
   const evMap = groupBy(C.eventsBetween(gridStart, gridEnd, eventCtx()), 'date');
   const enMap = groupBy(S.entries.filter(e => e.date >= gridStart && e.date <= gridEnd), 'date');
   const t = C.today();
+  const shiftOn = S.settings.shiftOn !== false;
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
     const d = C.addDays(gridStart, i);
@@ -1893,9 +2384,12 @@ function renderCalendar() {
     const mark = withPhoto ? `<img class="cal-thumb" data-pid="${esc(withPhoto.photoIds[0])}" alt="">` : ens.length ? '<span class="cal-dot"></span>' : '';
     const evHTML = evs.slice(0, 2).map(e => `<span class="cal-ev k-${e.kind}">${esc(e.short)}</span>`).join('')
       + (evs.length > 2 ? `<span class="cal-more">+${evs.length - 2}</span>` : '');
-    const label = `${dd.m}월 ${dd.d}일${evs.length ? ', ' + evs.map(e => e.title).join(', ') : ''}${ens.length ? `, 기록 ${ens.length}개` : ''}`;
+    const sc = shiftOn ? S.shifts[d] : '';
+    const scT = sc ? shiftType(sc) : null;
+    const shiftHTML = sc ? `<span class="cal-shift sc-${scT ? scT.color : 'gray'}"><b>${esc(sc)}</b><i> ${esc(scT ? scT.name : '')}</i></span>` : '';
+    const label = `${dd.m}월 ${dd.d}일${sc ? `, 근무 ${scT ? scT.name : sc}` : ''}${evs.length ? ', ' + evs.map(e => e.title).join(', ') : ''}${ens.length ? `, 기록 ${ens.length}개` : ''}`;
     cells += `<button class="${cls.join(' ')}" data-act="pick-date" data-date="${d}" aria-label="${esc(label)}">
-      <span class="cal-num">${dd.d}</span>${mark}${evHTML}</button>`;
+      <span class="cal-num">${dd.d}</span>${mark}${shiftHTML}${evHTML}</button>`;
   }
   el.innerHTML = `<div class="cal-layout">
     <section class="card cal-card">
@@ -1908,6 +2402,10 @@ function renderCalendar() {
       </div>
       <div class="cal-week">${C.WEEK.map(w => `<span>${w}</span>`).join('')}</div>
       <div class="cal-grid">${cells}</div>
+      ${shiftOn ? `<button class="cal-foot" data-act="shift-edit" data-date="${S.selDate && S.selDate.startsWith(first.slice(0, 8)) ? S.selDate : first}">
+        <span class="cf-l">💼 ${esc(herName())} 근무표</span>
+        <span class="cf-stats">${shiftStatsHTML(S.shifts, y, m) || '<span class="muted">이 달 근무를 넣어 주세요</span>'}</span>
+        ${ic('right')}</button>` : ''}
     </section>
     <section class="card day-panel" id="day-panel" aria-live="polite"></section></div>`;
   renderDayPanel();
@@ -1922,6 +2420,7 @@ function renderDayPanel() {
   const tg = togetherText(d);
   p.innerHTML = `<div class="day-head"><div><h3>${fmtMD(d)} ${C.WEEK[C.weekday(d)]}요일</h3>${tg ? `<p class="muted">${esc(tg)}</p>` : ''}</div>
       <button class="btn small primary" data-act="new-entry" data-date="${d}">${ic('plus')}기록</button></div>
+    ${shiftRowHTML(d)}
     ${evs.length ? `<div class="ev-chips">${evs.map(evChip).join('')}</div>` : ''}
     ${ens.length ? `<div class="rec-list">${ens.map(e => entryCard(e, true)).join('')}</div>`
       : `<div class="day-empty"><p>이 날의 기록이 아직 없어요</p><button class="btn soft" data-act="new-entry" data-date="${d}">이 날 기록하기</button></div>`}`;
@@ -2293,9 +2792,10 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
     $('.vw-count', wrap).textContent = `${i + 1} / ${items.length}`;
     $('.vw-prev', wrap).hidden = i === 0;
     $('.vw-next', wrap).hidden = i === items.length - 1;
-    const e = S.entries.find(x => x.id === it.entryId);
-    $('.vw-cap', wrap).textContent = e ? `${fmtLong(e.date)}${e.title ? ' · ' + e.title : ''}` : '';
+    const e = it.entryId ? S.entries.find(x => x.id === it.entryId) : null;
+    $('.vw-cap', wrap).textContent = it.caption || (e ? `${fmtLong(e.date)}${e.title ? ' · ' + e.title : ''}` : '');
     img.removeAttribute('src');
+    if (it.url) { img.src = it.url; return; }
     const th = await photoURL(it.pid, false);
     if (items[i] === it && !img.getAttribute('src') && th) img.src = th;
     const full = await photoURL(it.pid, true);
@@ -2308,10 +2808,13 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
   $('.vw-next', wrap).addEventListener('click', () => show(i + 1));
   $('.vw-close', wrap).addEventListener('click', () => ov.close());
   $('.vw-save', wrap).addEventListener('click', async () => {
-    const p = await dbGet('photos', items[i].pid);
+    const it = items[i];
+    if (it.blob) { downloadBlob(it.blob, it.name || 'photo.jpg'); toast('사진을 저장했어요'); return; }
+    if (!it.pid) return;
+    const p = await dbGet('photos', it.pid);
     if (!p) return;
     const e = S.entries.find(x => x.id === items[i].entryId);
-    downloadBlob(p.blob, `our-days-${e ? e.date : 'photo'}-${i + 1}.jpg`);
+    downloadBlob(p.blob, `나경이일기-${e ? e.date : 'photo'}-${i + 1}.jpg`);
     toast('사진을 저장했어요');
   });
   const entryBtn = $('.vw-entry', wrap);
@@ -2384,6 +2887,414 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
   };
   stage.addEventListener('pointerup', end);
   stage.addEventListener('pointercancel', end);
+}
+
+/* ==========================================================================
+   12-1. 교대 근무표 (데이·이브닝·나이트·오프)
+   ========================================================================== */
+const SHIFT_COLORS = [['sun', '노랑'], ['orange', '주황'], ['rose', '분홍'], ['violet', '보라'], ['navy', '남색'], ['teal', '청록'], ['green', '초록'], ['gray', '회색']];
+
+function shiftTypes() {
+  const list = S.settings.shiftTypes;
+  return Array.isArray(list) && list.length ? list : C.DEFAULT_SHIFT_TYPES;
+}
+function shiftType(code) { return shiftTypes().find(x => x.code === code) || null; }
+function shiftChip(code, long = false) {
+  const t = shiftType(code);
+  return `<span class="s-chip sc-${t ? t.color : 'gray'}"><b>${esc(code)}</b>${long && t ? ` ${esc(t.name)}` : ''}</span>`;
+}
+function shiftStatsHTML(map, y, m) {
+  const st = C.monthShiftStats(map, y, m);
+  const order = shiftTypes().map(t => t.code);
+  const codes = [...order.filter(c => st[c]), ...Object.keys(st).filter(c => !order.includes(c))];
+  return codes.map(c => `<span class="stat">${shiftChip(c)}${st[c]}</span>`).join('');
+}
+async function saveShifts(map) {
+  const clean = {};
+  for (const [d, c] of Object.entries(map)) if (c && C.isValid(d)) clean[d] = String(c);
+  await kvSet('shifts', clean);
+  S.shifts = clean;
+}
+
+// 달력 날짜 패널의 근무 줄
+function shiftRowHTML(d) {
+  if (S.settings.shiftOn === false) return '';
+  const sc = S.shifts[d];
+  const t = sc ? shiftType(sc) : null;
+  const time = t ? C.shiftTimeLabel(t) : '';
+  return `<button class="shift-row" data-act="shift-edit" data-date="${d}" aria-label="${esc(herName())} 근무 ${sc ? `${t ? t.name : sc} · 고치기` : '넣기'}">
+    <span class="sr-label">${esc(herName())} 근무</span>
+    ${sc ? `${shiftChip(sc, true)}${time ? `<span class="sr-time">${time}</span>` : ''}` : '<span class="sr-time">아직 없어요</span>'}
+    <span class="sp"></span>${sc ? '' : '<span class="sr-act">넣기</span>'}${ic('right')}</button>`;
+}
+
+// 홈 화면 근무 카드
+function shiftCardHTML() {
+  if (S.settings.shiftOn === false) return '';
+  const name = herName();
+  const t = C.today();
+  if (!Object.keys(S.shifts).length) {
+    return `<section class="card"><div class="card-head"><h3>💼 ${esc(name)} 근무</h3></div>
+      <p class="desc">근무표를 넣으면 ${esc(name)}의 데이·이브닝·나이트·오프를 여기서 한눈에 볼 수 있어요. 근무표 사진을 Claude에게 읽게 해서 한 달을 한 번에 넣을 수도 있어요.</p>
+      <button class="btn soft" data-act="shift-edit">${ic('plus')} 근무표 넣기</button></section>`;
+  }
+  const code = S.shifts[t];
+  const tt = code ? shiftType(code) : null;
+  const time = tt ? C.shiftTimeLabel(tt) : '';
+  const todayHTML = code
+    ? `${shiftChip(code, true)}${time ? `<span class="sr-time">${time}</span>` : ''}${tt && tt.off ? '<span class="sr-time">쉬는 날 💚</span>' : ''}`
+    : '<span class="sr-time">아직 몰라요</span>';
+  let strip = '';
+  for (let i = 0; i < 7; i++) {
+    const d = C.addDays(t, i);
+    const w = C.weekday(d);
+    const c = S.shifts[d];
+    strip += `<button class="ws-day${i === 0 ? ' today' : ''}${w === 0 ? ' sun' : ''}${w === 6 ? ' sat' : ''}" data-act="shift-edit" data-date="${d}" aria-label="${fmtMD(d)} ${c ? (shiftType(c) || { name: c }).name : '근무 없음'}">
+      <small>${i === 0 ? '오늘' : C.WEEK[w]}</small><b>${C.parse(d).d}</b>${c ? shiftChip(c) : '<span class="ws-none">·</span>'}</button>`;
+  }
+  const offFrom = tt && tt.off ? C.addDays(t, 1) : t;
+  const off = C.nextOff(S.shifts, shiftTypes(), offFrom);
+  const offText = off
+    ? `다음 쉬는 날: <b>${fmtMD(off.date)} (${C.WEEK[C.weekday(off.date)]})</b> · ${C.diffDays(t, off.date) === 1 ? '내일' : `${C.diffDays(t, off.date)}일 뒤`}`
+    : '다음 쉬는 날: 근무표에 아직 없어요';
+  return `<section class="card shift-card"><div class="card-head"><h3>💼 ${esc(name)} 근무</h3>
+      <button class="link" data-act="shift-edit">근무표</button></div>
+    <div class="shift-today"><span class="sr-label">오늘</span>${todayHTML}</div>
+    <div class="week-strip">${strip}</div>
+    <p class="stats">${offText}</p></section>`;
+}
+
+// Claude에게 보낼 부탁 문장
+function shiftPrompt(y, m) {
+  const p = S.profile;
+  const names = [p.name, p.nickname].map(s => String(s || '').trim()).filter(Boolean);
+  const who = names.length ? names.map(n => `"${n}"`).join(' 또는 ') : '여자친구';
+  const codes = shiftTypes().map(t => `${t.code}=${t.name}`).join(', ');
+  return `첨부한 근무표 사진에서 ${who}의 근무를 읽어 주세요.
+
+- 기준 달: ${y}년 ${m}월 (사진에 다른 달 날짜도 보이면 그 달도 함께 적어 주세요)
+- 근무 기호: ${codes}
+- 사진에 다른 표기(OFF, 휴, / 등)가 있으면 위 기호 중 가장 가까운 것으로 바꿔 주세요.
+- 알아볼 수 없는 칸은 ? 로 적어 주세요.
+- 비슷한 이름이 여러 줄 있으면 어느 줄인지 먼저 물어봐 주세요.
+- 설명 없이 아래 형식의 코드 블록 하나로만 답해 주세요.
+
+예시 형식:
+근무표 ${y}-${pad(m)}
+1 D
+2 E
+3 N
+(마지막 날까지)`;
+}
+
+// 근무표 입력 화면
+function openShiftEditor(date) {
+  const base = C.isValid(date) ? date : C.today();
+  let { y, m } = C.parse(base);
+  let cur = base;
+  const today = C.today();
+  const work = { ...S.shifts };
+  const hist = [];
+  const imported = new Set();
+  const urls = [];
+  let dirty = false;
+  let photoBlob = null;
+
+  const sh = openSheet({
+    title: '근무표', wide: true,
+    body: `<div class="se">
+      <div class="se-imp">
+        <button type="button" class="btn primary block se-import">🤖 사진 속 근무표 자동으로 읽기</button>
+        <p class="se-sub">근무표 사진을 Claude가 읽어서 한 달을 한 번에 넣어 줘요</p>
+      </div>
+      <div class="se-main">
+        <div class="se-head">
+          <button type="button" class="icon-btn" data-se="prev" aria-label="이전 달">${ic('left')}</button>
+          <b class="se-title"></b>
+          <button type="button" class="icon-btn" data-se="next" aria-label="다음 달">${ic('right')}</button>
+        </div>
+        <div class="se-stats"></div>
+        <div class="cal-week">${C.WEEK.map(w => `<span>${w}</span>`).join('')}</div>
+        <div class="se-grid"></div>
+        <div class="se-dock">
+          <p class="se-hint" aria-live="polite"></p>
+          <div class="se-pad">${shiftTypes().map(t => `<button type="button" class="se-key sc-${t.color}" data-code="${esc(t.code)}"><b>${esc(t.code)}</b><small>${esc(t.name)}</small></button>`).join('')}</div>
+          <div class="se-tools"><button type="button" class="btn small" data-se="clear">✕ 이 날 지우기</button>
+            <button type="button" class="btn small" data-se="undo">↶ 되돌리기</button></div>
+        </div>
+      </div>
+      <div class="se-photo"></div>
+      <input type="file" class="se-file" accept="image/*" hidden>
+    </div>`,
+    footer: `<button type="button" class="btn ghost" data-x>취소</button><button type="button" class="btn primary se-save">저장</button>`,
+    guard: async () => !dirty || confirmBox({ title: '저장하지 않고 닫을까요?', message: '입력한 근무가 사라져요.', ok: '닫기', danger: true }),
+    onClose: () => urls.forEach(u => URL.revokeObjectURL(u)),
+  });
+  const root = $('.se', sh.body);
+
+  function drawGrid() {
+    $('.se-title', root).textContent = `${y}년 ${m}월`;
+    $('.se-stats', root).innerHTML = shiftStatsHTML(work, y, m) || '<span class="muted">이 달 근무가 아직 없어요</span>';
+    const first = C.toStr(y, m, 1);
+    const startW = C.weekday(first);
+    const dim = C.daysInMonth(y, m);
+    let html = '';
+    for (let i = 0; i < startW; i++) html += '<span class="se-blank"></span>';
+    for (let d = 1; d <= dim; d++) {
+      const ds = C.toStr(y, m, d);
+      const code = work[ds];
+      const w = (startW + d - 1) % 7;
+      const t = code ? shiftType(code) : null;
+      const cls = ['se-cell'];
+      if (ds === cur) cls.push('cur');
+      if (w === 0) cls.push('sun');
+      if (w === 6) cls.push('sat');
+      if (ds === today) cls.push('today');
+      if (imported.has(ds)) cls.push('imp');
+      html += `<button type="button" class="${cls.join(' ')}" data-date="${ds}" aria-label="${m}월 ${d}일 ${code ? (t ? t.name : code) : '비어 있음'}">
+        <span class="se-num">${d}</span>${code ? shiftChip(code) : '<span class="se-empty"></span>'}</button>`;
+    }
+    $('.se-grid', root).innerHTML = html;
+    const cp = C.parse(cur);
+    $('.se-hint', root).innerHTML = cp.y === y && cp.m === m
+      ? `<b>${cp.m}월 ${cp.d}일</b> 근무를 누르세요<span class="se-hint-more"> · 누르면 다음 날로 넘어가요</span>`
+      : '날짜를 누른 뒤 아래 근무 버튼을 누르세요';
+  }
+  function goMonth(ny, nm) {
+    if (ny === y && nm === m) return;
+    y = ny; m = nm;
+    const cp = C.parse(cur);
+    if (cp.y !== y || cp.m !== m) cur = C.toStr(y, m, 1);
+    loadPhoto();
+  }
+  function setDay(code) {
+    hist.push({ batch: [{ d: cur, prev: work[cur] || null }], cur });
+    if (code) work[cur] = code; else delete work[cur];
+    imported.delete(cur);
+    dirty = true;
+    cur = C.addDays(cur, 1);
+    const p = C.parse(cur);
+    if (p.y !== y || p.m !== m) { y = p.y; m = p.m; loadPhoto(); }
+    drawGrid();
+  }
+  function undo() {
+    const h = hist.pop();
+    if (!h) { toast('되돌릴 것이 없어요'); return; }
+    for (const { d, prev } of h.batch) { if (prev) work[d] = prev; else delete work[d]; imported.delete(d); }
+    cur = h.cur;
+    const p = C.parse(cur);
+    goMonth(p.y, p.m);
+    drawGrid();
+  }
+  async function loadPhoto() {
+    const key = `shiftPhoto:${y}-${pad(m)}`;
+    const box = $('.se-photo', root);
+    let blob = null;
+    try { blob = await kvGet(key, null); } catch (e) { blob = null; }
+    if (key !== `shiftPhoto:${y}-${pad(m)}`) return;   // 그 사이 달이 바뀜
+    photoBlob = blob;
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      urls.push(url);
+      box.innerHTML = `<p class="se-ph-title">📷 ${m}월 근무표 원본 사진</p>
+        <button type="button" class="se-ph-img" data-se="photo-view" aria-label="근무표 사진 크게 보기"><img src="${url}" alt="${m}월 근무표 사진"></button>
+        <div class="btn-row"><button type="button" class="btn small" data-se="photo-pick">사진 바꾸기</button>
+        <button type="button" class="btn small ghost danger-text" data-se="photo-del">지우기</button></div>`;
+    } else {
+      box.innerHTML = `<button type="button" class="se-ph-add" data-se="photo-pick">${ic('image')}
+        <span><b>${m}월 근무표 사진 보관하기</b><small>원본을 보면서 직접 넣거나, 나중에 다시 확인할 수 있어요</small></span></button>`;
+    }
+  }
+
+  root.addEventListener('click', async e => {
+    const cell = e.target.closest('.se-cell');
+    if (cell) { cur = cell.dataset.date; drawGrid(); return; }
+    const key = e.target.closest('.se-key[data-code]');
+    if (key) { setDay(key.dataset.code || null); return; }
+    const b = e.target.closest('[data-se]');
+    if (!b) {
+      if (e.target.closest('.se-import')) {
+        openShiftImport({ y, m, photo: photoBlob, onApply: applyImport });
+      }
+      return;
+    }
+    const act = b.dataset.se;
+    if (act === 'prev' || act === 'next') {
+      let ny = y, nm = m + (act === 'next' ? 1 : -1);
+      if (nm < 1) { nm = 12; ny--; }
+      if (nm > 12) { nm = 1; ny++; }
+      goMonth(ny, nm);
+      drawGrid();
+    } else if (act === 'undo') undo();
+    else if (act === 'clear') setDay(null);
+    else if (act === 'photo-pick') $('.se-file', root).click();
+    else if (act === 'photo-view' && photoBlob) {
+      openViewer([{ url: urls[urls.length - 1], blob: photoBlob, caption: `${y}년 ${m}월 근무표`, name: `근무표-${y}-${pad(m)}.jpg` }]);
+    } else if (act === 'photo-del') {
+      if (!(await confirmBox({ title: '근무표 사진을 지울까요?', message: '입력한 근무는 그대로 남아요.', ok: '지우기', danger: true }))) return;
+      try { await dbDel('kv', `shiftPhoto:${y}-${pad(m)}`); } catch (err) { saveError(err); return; }
+      loadPhoto();
+      toast('사진을 지웠어요');
+    }
+  });
+  $('.se-file', root).addEventListener('change', async ev => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+    const key = `shiftPhoto:${y}-${pad(m)}`;
+    try {
+      showBusy('사진 정리 중…');
+      const img = await decodeImage(f);
+      const r = await drawResized(img, img.naturalWidth || img.width, img.naturalHeight || img.height, 2600, 0.88);
+      if (img.close) img.close();
+      await kvSet(key, r.blob);
+      hideBusy();
+      await loadPhoto();
+      toast('근무표 사진을 보관했어요');
+    } catch (err) {
+      hideBusy();
+      console.warn(err);
+      alertBox('사진을 열 수 없어요', 'JPG나 PNG 사진으로 다시 시도해 주세요.');
+    }
+  });
+  function applyImport(r) {
+    const batch = [];
+    for (const [d, code] of Object.entries(r.map)) {
+      batch.push({ d, prev: work[d] || null });
+      if (code) work[d] = code; else delete work[d];
+      imported.add(d);
+    }
+    if (!batch.length) return;
+    hist.push({ batch, cur });
+    dirty = true;
+    const firstD = Object.keys(r.map).sort()[0];
+    const p = C.parse(firstD);
+    goMonth(p.y, p.m);
+    cur = firstD;
+    drawGrid();
+  }
+  $('.se-save', sh.el).addEventListener('click', async () => {
+    try {
+      await saveShifts(work);
+      dirty = false;
+      await sh.close();
+      if (S.view === 'calendar') { const p = C.parse(cur); S.calY = p.y; S.calM = p.m; S.selDate = cur; }
+      refreshAll();
+      toast('근무표를 저장했어요');
+    } catch (err) { saveError(err); }
+  });
+
+  drawGrid();
+  loadPhoto();
+}
+
+// 사진 속 근무표를 Claude로 읽기
+function openShiftImport({ y, m, photo, onApply }) {
+  const prompt = shiftPrompt(y, m);
+  let shareOK = false;
+  if (photo) {
+    try { shareOK = !!(navigator.canShare && navigator.canShare({ files: [new File([photo], 'a.jpg', { type: 'image/jpeg' })] })); } catch (e) { shareOK = false; }
+  }
+  const sh = openSheet({
+    title: '사진 속 근무표 자동으로 읽기',
+    body: `<ol class="steps">
+      <li><b>근무표 사진을 준비해요</b>
+        <small>${esc(herName())} 이름이 있는 줄과 날짜 줄이 잘 보이면 돼요. 그 부분만 잘라서 보내면 더 정확해요.</small></li>
+      <li><b>Claude에게 사진과 부탁 문장을 보내요</b>
+        <div class="btn-col">
+          ${shareOK ? `<button type="button" class="btn primary" data-im="share">${ic('share')} 보관한 ${m}월 사진 + 문장 보내기</button>` : ''}
+          <div class="btn-row">
+            <button type="button" class="btn ${shareOK ? '' : 'primary'}" data-im="copy">${ic('copy')} 부탁 문장 복사</button>
+            <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Claude 열기 ↗</a>
+          </div>
+        </div>
+        <small>Claude에서 ＋ 버튼으로 근무표 사진을 첨부하고, 입력칸을 길게 눌러 문장을 붙여넣은 뒤 보내세요.</small>
+        <details class="im-prompt"><summary>부탁 문장 보기</summary><pre>${esc(prompt)}</pre></details></li>
+      <li><b>Claude 답을 복사해서 여기에 붙여넣어요</b>
+        <small>Claude 답의 복사 버튼을 누른 뒤 이 앱으로 돌아오세요. D·E·N·O를 직접 적어도 돼요 (예: DDENNOO).</small>
+        <textarea class="im-text" rows="6" placeholder="근무표 ${y}-${pad(m)}&#10;1 D&#10;2 E&#10;…"></textarea>
+        <button type="button" class="btn small" data-im="paste">${ic('copy')} 붙여넣기</button></li>
+    </ol>
+    <p class="im-msg" aria-live="polite"></p>`,
+    footer: `<button type="button" class="btn ghost" data-x>취소</button><button type="button" class="btn primary im-apply">근무표에 넣기</button>`,
+  });
+  const msg = $('.im-msg', sh.body);
+  const ta = $('.im-text', sh.body);
+  sh.body.addEventListener('click', async e => {
+    const b = e.target.closest('[data-im]');
+    if (!b) return;
+    const act = b.dataset.im;
+    if (act === 'copy') copyText(prompt);
+    else if (act === 'paste') {
+      try {
+        const txt = await navigator.clipboard.readText();
+        if (txt) { ta.value = txt; msg.textContent = ''; } else toast('복사된 글이 없어요');
+      } catch (err) { toast('입력칸을 길게 눌러 붙여넣기 해 주세요'); ta.focus(); }
+    } else if (act === 'share') {
+      await copyText(prompt);
+      try {
+        await navigator.share({ files: [new File([photo], `근무표-${y}-${pad(m)}.jpg`, { type: 'image/jpeg' })], text: prompt });
+      } catch (err) {
+        if (!err || err.name !== 'AbortError') toast('보내지 못했어요. 문장 복사 후 Claude를 열어 주세요');
+      }
+    }
+  });
+  $('.im-apply', sh.el).addEventListener('click', async () => {
+    const text = ta.value;
+    const r = C.parseShiftText(text, shiftTypes(), { year: y, month: m });
+    const n = Object.keys(r.map).length;
+    if (!n) {
+      msg.textContent = text.trim() ? '읽을 수 있는 근무가 없어요. Claude 답을 그대로 붙여넣었는지 확인해 주세요.' : 'Claude 답을 먼저 붙여넣어 주세요.';
+      return;
+    }
+    await sh.close();
+    onApply(r);
+    toast(`${n}일 근무를 넣었어요. 사진과 비교해 보고 저장을 눌러 주세요`, 4500);
+    if (r.unknown || r.bad.length) {
+      const lines = [];
+      if (r.unknown) lines.push(`알아볼 수 없다고 한 칸(?): ${r.unknown}개`);
+      if (r.bad.length) lines.push(`읽지 못한 줄: ${r.bad.length}개\n${r.bad.slice(0, 5).map(s => `· ${s.trim()}`).join('\n')}${r.bad.length > 5 ? '\n…' : ''}`);
+      alertBox('일부는 읽지 못했어요', `${lines.join('\n')}\n\n빈칸은 사진을 보고 직접 넣어 주세요.`);
+    }
+  });
+}
+
+// 근무 종류 추가·고치기
+function openShiftTypeEditor(code) {
+  const types = shiftTypes();
+  const t = code ? types.find(x => x.code === code) : null;
+  if (code && !t) return;
+  openFormSheet({
+    title: t ? '근무 종류 고치기' : '근무 종류 추가',
+    fields: [
+      { k: 'code', label: '기호', ph: '예) D, M, 휴', max: 3 },
+      { k: 'name', label: '이름', ph: '예) 데이, 미들, 휴가', max: 10 },
+      { k: 'start', label: '시작 시간', type: 'time', opt: true },
+      { k: 'end', label: '끝나는 시간', type: 'time', opt: true },
+      { k: 'color', label: '색', type: 'swatch', options: SHIFT_COLORS },
+      { k: 'off', label: '쉬는 날', type: 'switch', hint: '켜면 "다음 쉬는 날"을 셀 때 이 근무를 쉬는 날로 쳐요' },
+    ],
+    values: t || { color: 'teal', off: false },
+    onSave: async v => {
+      const c = String(v.code || '').replace(/\s/g, '');
+      if (!c) { toast('기호를 입력해 주세요'); return false; }
+      if (!v.name) { toast('이름을 입력해 주세요'); return false; }
+      if (types.some(x => x !== t && String(x.code).toUpperCase() === c.toUpperCase())) { toast('이미 있는 기호예요'); return false; }
+      const item = { code: c, name: v.name, start: v.start || '', end: v.end || '', color: v.color || 'gray', off: !!v.off };
+      const list = t ? types.map(x => (x === t ? item : x)) : [...types, item];
+      if (t && t.code !== c) {
+        const moved = {};
+        for (const [d, x] of Object.entries(S.shifts)) moved[d] = x === t.code ? c : x;
+        await saveShifts(moved);
+      }
+      await saveSettings({ shiftTypes: list });
+      toast('저장했어요');
+    },
+    onDelete: t ? async () => {
+      if (types.length <= 1) throw new Error('근무 종류는 하나 이상 있어야 해요');
+      await saveSettings({ shiftTypes: types.filter(x => x !== t) });
+    } : null,
+  });
 }
 
 /* ==========================================================================
@@ -2482,75 +3393,85 @@ function openEventEditor(id = null) {
 const PF_SECTIONS = {
   basic: { title: '기본 정보', emoji: '🙂', fields: [
     { k: 'name', label: '이름', ph: '이름' },
-    { k: 'nickname', label: '애칭', ph: '내가 부르는 이름', opt: true },
-    { k: 'birthday', label: '생일', type: 'date', opt: true },
-    { k: 'phone', label: '연락처', type: 'tel', ph: '010-0000-0000', opt: true },
-    { k: 'mbti', label: 'MBTI', ph: '예) ENFP', opt: true, max: 10 },
-    { k: 'bloodType', label: '혈액형', type: 'select', options: ['', 'A형', 'B형', 'O형', 'AB형', '모름'], opt: true },
-    { k: 'height', label: '키', ph: '예) 163cm', opt: true },
-    { k: 'job', label: '직업 · 학교', opt: true },
-    { k: 'address', label: '주소', type: 'textarea', ph: '선물 보낼 때 쓰는 주소', opt: true, rows: 2 },
+    { k: 'nickname', label: '애칭', ph: '내가 부르는 이름' },
+    { k: 'birthday', label: '생일', type: 'date' },
+    { k: 'phone', label: '연락처', type: 'tel', ph: '010-0000-0000' },
+    { k: 'mbti', label: 'MBTI', ph: '예) ENFP', max: 10 },
+    { k: 'bloodType', label: '혈액형', type: 'select', options: ['', 'A형', 'B형', 'O형', 'AB형', '모름'] },
+    { k: 'height', label: '키', ph: '예) 163cm' },
+    { k: 'job', label: '직업 · 학교', ph: '예) 간호사' },
+    { k: 'address', label: '주소', type: 'textarea', ph: '선물 보낼 때 쓰는 주소', rows: 3 },
   ] },
   size: { title: '사이즈', emoji: '📏', fields: [
     { k: 'sizeTop', label: '상의', ph: '예) S, 55, 90' },
     { k: 'sizeBottom', label: '하의', ph: '예) 26, S' },
     { k: 'sizeShoe', label: '신발', ph: '예) 235' },
     { k: 'sizeRing', label: '반지', ph: '예) 10호 (왼손 약지)' },
-    { k: 'sizeEtc', label: '기타', type: 'textarea', ph: '모자, 장갑, 잠옷 등', rows: 2 },
-  ] },
-  like: { title: '좋아하는 것', emoji: '💗', fields: [
-    { k: 'likeFood', label: '음식' },
-    { k: 'likeDrink', label: '음료 · 커피', ph: '예) 아이스 바닐라라떼 덜 달게' },
-    { k: 'likeColor', label: '색깔' },
-    { k: 'likeFlower', label: '꽃' },
-    { k: 'likeMusic', label: '노래 · 가수' },
-    { k: 'likeMovie', label: '영화 · 드라마' },
-    { k: 'likeBrand', label: '브랜드' },
-    { k: 'hobby', label: '취미' },
-    { k: 'likes', label: '그 밖에 좋아하는 것', type: 'tags', ph: '예) 고양이, 바다, 딸기' },
-  ] },
-  dislike: { title: '싫어하는 것 · 못 먹는 것', emoji: '🙅', fields: [
-    { k: 'dislikes', label: '싫어하는 것', type: 'tags', ph: '예) 벌레, 공포영화' },
-    { k: 'cantEat', label: '못 먹는 음식 · 알레르기', type: 'tags', ph: '예) 오이, 땅콩' },
+    { k: 'sizeEtc', label: '기타', type: 'textarea', ph: '모자, 장갑, 잠옷 등', rows: 3 },
   ] },
   memo: { title: '자유 메모', emoji: '📝', fields: [
     { k: 'memo', label: '메모', type: 'textarea', ph: '무엇이든 자유롭게', rows: 8, max: 20000 },
   ] },
 };
+const ITEM_LISTS = {
+  likeItems: { title: '좋아하는 것', emoji: '💗', cats: C.LIKE_CATS, tag: '' },
+  dislikeItems: { title: '싫어하는 것 · 못 먹는 것', emoji: '🙅', cats: C.DISLIKE_CATS, tag: ' gray' },
+};
 const RELATIONS = ['아버지', '어머니', '언니', '오빠', '남동생', '여동생', '할머니', '할아버지', '반려동물'];
 
-function kvRow(label, valueHTML, acts = '') {
-  return `<div class="kv"><span class="k">${esc(label)}</span><div class="v">${valueHTML}${acts ? `<div class="kv-acts">${acts}</div>` : ''}</div></div>`;
-}
-function sectionRows(id) {
+// 기본 정보·사이즈: 한 줄씩 눌러서 입력 (빈 칸은 '입력하기'로 보임)
+function fieldRows(secId) {
   const p = S.profile;
   const t = C.today();
-  return PF_SECTIONS[id].fields.map(f => {
+  return PF_SECTIONS[secId].fields.map(f => {
     const v = p[f.k];
-    if (f.type === 'tags') return Array.isArray(v) && v.length ? kvRow(f.label, `<div class="tags">${v.map(x => `<span class="tag${id === 'dislike' ? ' gray' : ''}">${esc(x)}</span>`).join('')}</div>`) : '';
-    if (!v) return '';
-    if (f.k === 'birthday' && C.isValid(v)) {
+    let valueHTML = '';
+    let acts = '';
+    if (!v) valueHTML = `<span class="kv-add">${ic('plus')}입력하기</span>`;
+    else if (f.k === 'birthday' && C.isValid(v)) {
       const next = C.nextYearly(v, t);
-      return kvRow(f.label, `${esc(fmtLong(v).replace(/ \S+요일$/, ''))} <small class="nw">(만 ${C.age(v, t)}세${next ? ` · ${C.ddayLabel(next.dday)}` : ''})</small>`);
-    }
-    if (f.k === 'phone') {
+      valueHTML = `${esc(fmtLong(v).replace(/ \S+요일$/, ''))} <small class="nw">(만 ${C.age(v, t)}세${next ? ` · ${C.ddayLabel(next.dday)}` : ''})</small>`;
+    } else if (f.k === 'phone') {
       const tel = String(v).replace(/[^0-9+]/g, '');
-      return kvRow(f.label, `<a href="tel:${esc(tel)}">${esc(v)}</a>`,
-        `<button class="btn small" data-act="copy" data-text="${esc(v)}">${ic('copy')}복사</button>`);
-    }
-    if (f.k === 'address') {
-      return kvRow(f.label, esc(v),
-        `<button class="btn small" data-act="copy" data-text="${esc(v)}">${ic('copy')}복사</button>
-         <a class="btn small" href="https://map.naver.com/p/search/${encodeURIComponent(v)}" target="_blank" rel="noopener">${ic('map')}지도</a>`);
-    }
-    return kvRow(f.label, esc(v));
+      valueHTML = `<a href="tel:${esc(tel)}">${esc(v)}</a>`;
+      acts = `<button class="btn small" data-act="copy" data-text="${esc(v)}">${ic('copy')}복사</button>`;
+    } else if (f.k === 'address') {
+      valueHTML = esc(v);
+      acts = `<button class="btn small" data-act="copy" data-text="${esc(v)}">${ic('copy')}복사</button>
+        <a class="btn small" href="https://map.naver.com/p/search/${encodeURIComponent(v)}" target="_blank" rel="noopener">${ic('map')}지도</a>`;
+    } else valueHTML = esc(v);
+    return `<div class="kv tap${v ? '' : ' none'}" data-act="pf-field" data-k="${f.k}" role="button" tabindex="0" aria-label="${esc(f.label)} ${v ? '고치기' : '입력하기'}">
+      <span class="k">${esc(f.label)}</span>
+      <div class="v">${valueHTML}${acts ? `<div class="kv-acts">${acts}</div>` : ''}</div>
+      <span class="kv-go">${v ? ic('edit') : ''}</span></div>`;
   }).join('');
 }
+
+// 좋아하는 것 · 싫어하는 것: 종류별로 모아서 보여 주기
+function itemGroupsHTML(listKey) {
+  const conf = ITEM_LISTS[listKey];
+  const items = S.profile[listKey] || [];
+  const known = new Set(conf.cats.map(c => c.k));
+  const groups = conf.cats.map(c => ({ ...c, items: items.filter(x => x.cat === c.k || (c.k === conf.cats[conf.cats.length - 1].k && !known.has(x.cat))) }));
+  let html = groups.filter(g => g.items.length).map(g => `<div class="ig">
+      <div class="ig-head"><span class="ig-e">${g.e}</span><b>${esc(g.k)}</b><small>${g.items.length}</small>
+        <button class="ig-add" data-act="add-item" data-list="${listKey}" data-cat="${esc(g.k)}" aria-label="${esc(g.k)} 더 등록">${ic('plus')}</button></div>
+      <div class="tags">${g.items.map(x => `<button class="tag item${conf.tag}" data-act="edit-item" data-list="${listKey}" data-id="${esc(x.id)}">${esc(x.text)}${x.memo ? `<small>${esc(x.memo)}</small>` : ''}</button>`).join('')}</div>
+    </div>`).join('');
+  const unused = groups.filter(g => !g.items.length);
+  if (unused.length) {
+    html += `<div class="ig-more">${items.length ? '<span class="ig-more-t">다른 종류 등록</span>' : ''}${unused.map(g =>
+      `<button class="chip-add" data-act="add-item" data-list="${listKey}" data-cat="${esc(g.k)}">${g.e} ${esc(g.k)} <b>＋</b></button>`).join('')}</div>`;
+  }
+  return html;
+}
+
 function pfCard(id, inner, opts = {}) {
   const s = PF_SECTIONS[id] || opts;
-  return `<section class="card"><div class="card-head"><h3>${s.emoji} ${esc(s.title)}</h3>
-    ${opts.addAct ? `<button class="btn small soft" data-act="${opts.addAct}">${ic('plus')}추가</button>`
-      : `<button class="btn small" data-act="edit-section" data-sec="${id}">${ic('edit')}편집</button>`}</div>
+  const btn = opts.addAct ? `<button class="btn small soft" data-act="${opts.addAct}"${opts.list ? ` data-list="${opts.list}"` : ''}>${ic('plus')}${opts.addLabel || '추가'}</button>`
+    : opts.noBtn ? (opts.hint ? `<span class="card-hint">${esc(opts.hint)}</span>` : '')
+    : `<button class="btn small" data-act="edit-section" data-sec="${id}">${ic('edit')}편집</button>`;
+  return `<section class="card"><div class="card-head"><h3>${s.emoji} ${esc(s.title)}</h3>${btn}</div>
     ${inner || `<p class="empty">${opts.empty || '아직 적은 내용이 없어요'}</p>`}</section>`;
 }
 function renderProfile() {
@@ -2583,10 +3504,10 @@ function renderProfile() {
 
   el.innerHTML = `${head}<div class="pf-grid">
     <div class="col">
-      ${pfCard('basic', sectionRows('basic'))}
-      ${pfCard('like', sectionRows('like'))}
-      ${pfCard('dislike', sectionRows('dislike'))}
-      ${pfCard('size', sectionRows('size'))}
+      ${pfCard('basic', fieldRows('basic'), { noBtn: true, hint: '눌러서 하나씩 입력' })}
+      ${pfCard('likes', itemGroupsHTML('likeItems'), { title: '좋아하는 것', emoji: '💗', addAct: 'add-item', list: 'likeItems', addLabel: '등록' })}
+      ${pfCard('dislikes', itemGroupsHTML('dislikeItems'), { title: '싫어하는 것 · 못 먹는 것', emoji: '🙅', addAct: 'add-item', list: 'dislikeItems', addLabel: '등록' })}
+      ${pfCard('size', fieldRows('size'), { noBtn: true })}
     </div>
     <div class="col">
       ${pfCard('wish', wishes, { title: '갖고 싶어하는 것', emoji: '🎁', addAct: 'add-wish', empty: '지나가듯 말한 갖고 싶은 것을 적어 두면 선물 고를 때 좋아요' })}
@@ -2598,20 +3519,148 @@ function renderProfile() {
 function openSectionEditor(id) {
   const sec = PF_SECTIONS[id];
   if (!sec) return;
-  const extra = id === 'basic' && S.avatarURL ? '<button type="button" class="btn ghost danger-text rm-avatar">프로필 사진 지우기</button>' : '';
-  const sh = openFormSheet({
-    title: `${sec.title} 편집`, fields: sec.fields, values: S.profile, extraHTML: extra,
+  openFormSheet({
+    title: `${sec.title} 편집`, fields: sec.fields, values: S.profile,
     onSave: async val => {
       await saveProfile(val);
       toast('저장했어요');
     },
   });
-  const rm = $('.rm-avatar', sh.el);
-  if (rm) rm.addEventListener('click', async () => {
+}
+
+// 기본 정보·사이즈 한 칸만 입력
+function openFieldEditor(k) {
+  const f = [...PF_SECTIONS.basic.fields, ...PF_SECTIONS.size.fields].find(x => x.k === k);
+  if (!f) return;
+  const had = !!S.profile[k];
+  const sh = openFormSheet({
+    title: f.label, fields: [f], values: S.profile,
+    onSave: async v => {
+      const val = v[k] || '';
+      if (f.type === 'date' && val && !C.isValid(val)) { toast('날짜를 다시 확인해 주세요'); return false; }
+      await saveProfile({ [k]: val });
+      toast(val ? `${f.label} 저장했어요` : `${f.label} 비웠어요`);
+    },
+    onDelete: had ? async () => { await saveProfile({ [k]: '' }); } : null,
+  });
+  if (f.type !== 'date' && f.type !== 'select') {
+    setTimeout(() => {
+      const inp = $('[data-k]', sh.body);
+      if (inp && document.body.contains(inp)) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* 무시 */ } }
+    }, 320);
+  }
+}
+
+// 좋아하는 것 · 싫어하는 것 하나씩 등록 / 고치기
+function openItemEditor(listKey, { id = null, cat = null } = {}) {
+  const conf = ITEM_LISTS[listKey];
+  if (!conf) return;
+  const cats = conf.cats;
+  const item = id ? (S.profile[listKey] || []).find(x => x.id === id) : null;
+  if (id && !item) return;
+  let curCat = item ? (cats.some(c => c.k === item.cat) ? item.cat : cats[cats.length - 1].k)
+    : (cats.some(c => c.k === cat) ? cat : (S.lastCat[listKey] || cats[0].k));
+  const catOf = k => cats.find(c => c.k === k) || cats[0];
+  const sh = openSheet({
+    title: item ? `${conf.title} 고치기` : `${conf.title} 등록`,
+    body: `<form class="form" novalidate>
+      <div class="field"><span>종류</span><div class="cat-pick">${cats.map(c =>
+        `<button type="button" class="chip cat${c.k === curCat ? ' on' : ''}" data-cat="${esc(c.k)}">${c.e} ${esc(c.k)}</button>`).join('')}</div></div>
+      <label class="field"><span class="it-label"></span><input type="text" class="it-text" maxlength="60" value="${esc(item ? item.text : '')}" enterkeyhint="${item ? 'done' : 'send'}" autocomplete="off"></label>
+      <label class="field"><span>메모 <small>(선택)</small></span><input type="text" class="it-memo" maxlength="100" value="${esc(item ? item.memo || '' : '')}" placeholder="예) 로제 맛, 덜 달게, 2월에 말함" enterkeyhint="${item ? 'done' : 'send'}" autocomplete="off"></label>
+      ${item ? '' : '<p class="it-hint">등록해도 이 창은 그대로 있어서 이어서 계속 등록할 수 있어요. 다 했으면 닫기를 누르세요.</p>'}
+      <div class="it-have" aria-live="polite"></div>
+      ${item ? `<button type="button" class="btn ghost danger-text it-del">${ic('trash')} 삭제하기</button>` : ''}
+    </form>`,
+    footer: `<button type="button" class="btn ghost" data-x>${item ? '취소' : '닫기'}</button>
+      <button type="button" class="btn primary it-save">${item ? '저장' : `${ic('plus')} 등록`}</button>`,
+    guard: async () => {
+      const typed = $('.it-text', sh.el).value.trim();
+      const changed = item ? (typed !== item.text || $('.it-memo', sh.el).value.trim() !== (item.memo || '') || curCat !== item.cat) : !!typed;
+      return !changed || confirmBox({ title: '저장하지 않고 닫을까요?', message: item ? '고친 내용이 사라져요.' : `"${typed}"은(는) 아직 등록되지 않았어요.`, ok: '닫기', danger: true });
+    },
+  });
+  const root = sh.el;
+  const text = $('.it-text', root);
+  const memo = $('.it-memo', root);
+  function drawCat() {
+    const c = catOf(curCat);
+    $$('.chip.cat', root).forEach(b => b.classList.toggle('on', b.dataset.cat === curCat));
+    $('.it-label', root).textContent = `${c.e} ${c.k}`;
+    text.placeholder = c.ph || '';
+    const have = (S.profile[listKey] || []).filter(x => x.cat === curCat && (!item || x.id !== item.id));
+    $('.it-have', root).innerHTML = have.length
+      ? `<p class="it-have-t">이미 등록된 ${esc(c.k)} ${have.length}개</p><div class="tags">${have.map(x => `<span class="tag${conf.tag}">${esc(x.text)}</span>`).join('')}</div>`
+      : '';
+  }
+  drawCat();
+  $('.cat-pick', root).addEventListener('click', e => {
+    const b = e.target.closest('.chip.cat');
+    if (!b) return;
+    curCat = b.dataset.cat;
+    drawCat();
+    text.focus();
+  });
+  async function save() {
+    const t = text.value.trim();
+    const m = memo.value.trim();
+    if (!t) { toast('무엇인지 입력해 주세요'); text.focus(); return; }
+    const list = S.profile[listKey] || [];
+    if (list.some(x => x.cat === curCat && x.text === t && (!item || x.id !== item.id))) { toast('이미 등록돼 있어요'); text.select(); return; }
+    try {
+      if (item) {
+        await saveProfile({ [listKey]: list.map(x => (x.id === item.id ? { ...x, cat: curCat, text: t, memo: m } : x)) });
+        text.value = t; memo.value = m; item.text = t; item.memo = m; item.cat = curCat;
+        await sh.close();
+        refreshAll();
+        toast('고쳤어요');
+      } else {
+        await saveProfile({ [listKey]: [...list, { id: uid(), cat: curCat, text: t, memo: m }] });
+        S.lastCat[listKey] = curCat;
+        text.value = '';
+        memo.value = '';
+        drawCat();
+        refreshAll();
+        toast(`"${t}" 등록했어요`);
+        text.focus();
+      }
+    } catch (err) { saveError(err); }
+  }
+  $('.it-save', root).addEventListener('click', save);
+  $('form', root).addEventListener('submit', e => e.preventDefault());
+  [text, memo].forEach(inp => inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); save(); }
+  }));
+  const del = $('.it-del', root);
+  if (del) del.addEventListener('click', async () => {
+    if (!(await confirmBox({ title: `"${item.text}"을(를) 지울까요?`, ok: '지우기', danger: true }))) return;
+    try {
+      await saveProfile({ [listKey]: (S.profile[listKey] || []).filter(x => x.id !== item.id) });
+      text.value = item.text; memo.value = item.memo || ''; curCat = item.cat;   // 닫을 때 확인창이 뜨지 않게
+      await sh.close();
+      refreshAll();
+      toast('지웠어요');
+    } catch (err) { saveError(err); }
+  });
+  setTimeout(() => { if (document.body.contains(text)) text.focus(); }, 320);
+}
+
+// 프로필 사진: 있으면 바꾸기/지우기 고르기
+async function openAvatarMenu() {
+  if (!S.avatarURL) { $('#file-avatar').click(); return; }
+  const sh = openSheet({
+    title: '프로필 사진',
+    body: `<div class="btn-col"><button type="button" class="btn primary big" data-av="change">${ic('camera')} 사진 바꾸기</button>
+      <button type="button" class="btn ghost danger-text" data-av="remove">${ic('trash')} 사진 지우기</button></div>`,
+  });
+  sh.body.addEventListener('click', async e => {
+    const b = e.target.closest('[data-av]');
+    if (!b) return;
+    if (b.dataset.av === 'change') { await sh.close(); $('#file-avatar').click(); return; }
     if (!(await confirmBox({ title: '프로필 사진을 지울까요?', ok: '지우기', danger: true }))) return;
-    await dbDel('kv', 'avatar');
+    try { await dbDel('kv', 'avatar'); } catch (err) { saveError(err); return; }
     setAvatarURL(null);
-    rm.remove();
+    await sh.close();
     refreshAll();
     toast('사진을 지웠어요');
   });
@@ -2686,6 +3735,13 @@ function renderSettings() {
       ${switchRow('countFirstDay', '사귄 날을 1일로 세기', '켜면 한국식(사귄 날 = 1일), 끄면 다음 날이 1일')}
       <label class="set-row"><span class="lbl"><b>내 생일</b><small>달력에 표시돼요</small></span><input type="date" data-set="myBirthday" value="${esc(st.myBirthday)}"></label>
     </section>
+    <section class="card"><div class="card-head"><h3>💼 근무표</h3><button class="btn small soft" data-act="shift-edit">근무표 입력</button></div>
+      ${switchRow('shiftOn', '근무표 사용', '달력과 홈에 그녀 근무를 보여 줘요')}
+      <p class="desc" style="margin:12px 0 2px">근무 종류를 누르면 이름·시간·색을 바꿀 수 있어요. 근무 시간은 병원마다 다르니 맞게 고쳐 주세요.</p>
+      ${shiftTypes().map(t => `<button class="list-row" data-act="shift-type" data-code="${esc(t.code)}">${shiftChip(t.code)}
+        <span class="lr-main"><b>${esc(t.name)}</b><small>${C.shiftTimeLabel(t) || (t.off ? '쉬는 날' : '시간 없음')}${t.off && C.shiftTimeLabel(t) ? ' · 쉬는 날' : ''}</small></span>${ic('right')}</button>`).join('')}
+      <button class="btn small soft add-row" data-act="shift-type-add">${ic('plus')} 근무 종류 추가</button>
+    </section>
     <section class="card"><div class="card-head"><h3>🎨 화면</h3></div>
       <div class="set-row"><span class="lbl"><b>테마</b></span>
         <div class="seg">${[['auto', '자동'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) =>
@@ -2717,6 +3773,10 @@ function renderSettings() {
     </section>
     <section class="card"><div class="card-head"><h3>ℹ️ 앱 정보</h3></div>
       <div class="set-row"><span class="lbl"><b>앱 버전</b></span><span class="val">v${APP_VERSION}</span></div>
+      <div class="set-row"><span class="lbl"><b>화면 맞춤</b><small>${(window.__vp || {}).fitted
+        ? `이 휴대폰은 글자 크기·화면 확대 설정 때문에 화면 폭이 ${window.__vp.real}px로 좁게 잡혀서, 360px 화면 모양으로 줄여서 보여 주고 있어요`
+        : `화면 폭 ${(window.__vp || {}).real || document.documentElement.clientWidth}px · 그대로 보여 주는 중`}</small></span>
+        <span class="val">${(window.__vp || {}).fitted ? '켜짐' : '필요 없음'}</span></div>
       ${!standalone && S.installEvt ? `<div class="set-row"><span class="lbl"><b>앱으로 설치</b><small>홈 화면에 아이콘 만들기</small></span><button class="btn small primary" data-act="install">설치</button></div>` : ''}
       <div class="set-row"><span class="lbl"><b>새 버전 받기</b><small>깃허브에 새 파일을 올린 뒤 눌러 주세요</small></span><button class="btn small" data-act="reload-app">새로고침</button></div>
       <p class="desc" style="margin-top:8px">입력한 정보와 사진은 어디에도 전송되지 않아요. 깃허브에는 앱 코드만 올라가 있어요.</p>
@@ -2868,15 +3928,16 @@ function initLock() {
 /* ==========================================================================
    17. 백업 · 불러오기
    ========================================================================== */
-const BACKUP_README = `우리의 날들 — 백업 파일
+const BACKUP_README = `${APP_NAME} — 백업 파일
 
-이 파일은 「우리의 날들」 앱의 백업이에요.
+이 파일은 「${APP_NAME}」 앱의 백업이에요.
 앱의 설정 → 백업 파일 불러오기에서 이 ZIP 파일을 그대로 선택하면 기록과 사진이 돌아와요.
 
 - data.json : 기록 글, 그녀 정보, 기념일, 설정
 - photos/   : 기록에 넣은 사진 (원본 크기 축소본)
 - thumbs/   : 작은 미리보기 사진
 - avatar.jpg: 프로필 사진
+- shiftphotos/ : 근무표 원본 사진
 
 ※ 압축을 풀었다가 다시 압축하지 말고, 받은 ZIP 파일 그대로 보관해 주세요.
 `;
@@ -2888,10 +3949,13 @@ async function buildBackup() {
   showBusy('백업 파일을 만드는 중…', 0);
   const photos = await dbAll('photos');
   const avatar = await kvGet('avatar', null);
+  const shiftPhotos = (await dbAll('kv')).filter(r => typeof r.key === 'string' && r.key.startsWith('shiftPhoto:') && r.value);
   const { pinHash, pinSalt, pinHint, ...settings } = S.settings;
   const data = {
-    app: 'our-days', format: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
+    app: 'our-days', format: 1,   // 내부 이름: 바꾸면 예전 백업을 못 읽으니 그대로 둠
+    appVersion: APP_VERSION, exportedAt: new Date().toISOString(),
     settings, profile: S.profile, entries: S.entries, events: S.events,
+    shifts: S.shifts, shiftPhotos: shiftPhotos.map(r => r.key.slice('shiftPhoto:'.length)),
     photos: photos.map(p => ({ id: p.id, entryId: p.entryId, width: p.width, height: p.height, createdAt: p.createdAt, file: `photos/${p.id}.jpg`, thumb: p.thumb ? `thumbs/${p.id}.jpg` : null })),
     avatar: avatar ? 'avatar.jpg' : null,
   };
@@ -2901,8 +3965,9 @@ async function buildBackup() {
     if (p.thumb) files.push({ name: `thumbs/${p.id}.jpg`, data: p.thumb });
   }
   if (avatar) files.push({ name: 'avatar.jpg', data: avatar });
+  for (const r of shiftPhotos) files.push({ name: `shiftphotos/${r.key.slice('shiftPhoto:'.length)}.jpg`, data: r.value });
   const blob = await C.makeZip(files, (n, total) => showBusy('백업 파일을 만드는 중…', n / total));
-  return { blob, name: `our-days-backup-${stamp()}.zip` };
+  return { blob, name: `나경이일기-백업-${stamp()}.zip` };
 }
 async function doBackup(mode = 'save') {
   let built;
@@ -2912,7 +3977,7 @@ async function doBackup(mode = 'save') {
   if (mode === 'share') {
     try {
       const file = new File([built.blob], built.name, { type: 'application/zip' });
-      await navigator.share({ files: [file], title: '우리의 날들 백업' });
+      await navigator.share({ files: [file], title: `${APP_NAME} 백업` });
     } catch (err) {
       if (err && err.name === 'AbortError') { toast('공유를 취소했어요'); return; }
       downloadBlob(built.blob, built.name);
@@ -2925,6 +3990,13 @@ async function doBackup(mode = 'save') {
   toast(`백업 파일을 만들었어요 (${fmtBytes(built.blob.size)})`, 3500);
 }
 
+function cleanShifts(obj) {
+  const out = {};
+  if (obj && typeof obj === 'object') {
+    for (const [d, c] of Object.entries(obj)) if (C.isValid(d) && typeof c === 'string' && c && c.length <= 4) out[d] = c;
+  }
+  return out;
+}
 function mergeProfile(cur, bk) {
   const out = { ...defaultProfile(), ...cur };
   if (!bk || typeof bk !== 'object') return out;
@@ -2947,7 +4019,8 @@ function chooseRestoreMode(data, hasData) {
     const sh = openSheet({
       title: '백업 파일 불러오기',
       body: `<p class="desc strong">${esc(when)} 에 만든 백업</p>
-        <ul class="sum"><li>기록 ${(data.entries || []).length}개</li><li>사진 ${(data.photos || []).length}장</li><li>직접 만든 기념일 ${(data.events || []).length}개</li></ul>
+        <ul class="sum"><li>기록 ${(data.entries || []).length}개</li><li>사진 ${(data.photos || []).length}장</li><li>직접 만든 기념일 ${(data.events || []).length}개</li>
+        ${data.shifts && Object.keys(data.shifts).length ? `<li>근무표 ${Object.keys(data.shifts).length}일</li>` : ''}</ul>
         ${hasData ? `<div class="choice">
           <button type="button" class="choice-btn" data-c="merge"><b>➕ 합치기</b><small>지금 기록은 그대로 두고 백업 내용을 더해요. 같은 기록은 더 최근에 고친 쪽이 남아요.</small></button>
           <button type="button" class="choice-btn" data-c="replace"><b>🔄 바꾸기</b><small>지금 기기의 기록을 모두 지우고 백업 내용으로 바꿔요.</small></button></div>`
@@ -2988,7 +4061,7 @@ async function restoreFromFile(file) {
     if (!data || data.app !== 'our-days') throw new Error('다른 앱의 파일');
   } catch (err) {
     console.warn(err);
-    alertBox('불러올 수 없는 파일이에요', '「우리의 날들」에서 만든 백업 파일(our-days-backup-….zip)을 압축을 풀지 않은 그대로 골라 주세요.');
+    alertBox('불러올 수 없는 파일이에요', `「${APP_NAME}」에서 만든 백업 파일(나경이일기-백업-….zip, 예전 이름 our-days-backup-….zip)을 압축을 풀지 않은 그대로 골라 주세요.`);
     return;
   }
   const hasData = S.entries.length > 0 || S.events.length > 0 || !!S.profile.name;
@@ -3000,11 +4073,15 @@ async function restoreFromFile(file) {
     const entries = (Array.isArray(data.entries) ? data.entries : []).filter(e => e && e.id && C.isValid(e.date)).map(normEntry);
     const events = (Array.isArray(data.events) ? data.events : []).filter(v => v && v.id && C.isValid(v.date));
     const photos = (Array.isArray(data.photos) ? data.photos : []).filter(p => p && p.id);
+    const bShifts = cleanShifts(data.shifts);
+    const bShiftPhotos = Array.isArray(data.shiftPhotos) ? data.shiftPhotos.filter(x => /^\d{4}-\d{2}$/.test(String(x))) : [];
     let have = new Set();
     if (mode === 'replace') {
+      const kvKeys = await reqP(store('kv').getAllKeys());
       const tx = db.transaction(['entries', 'photos', 'events', 'kv'], 'readwrite');
       ['entries', 'photos', 'events'].forEach(s => tx.objectStore(s).clear());
       tx.objectStore('kv').delete('avatar');
+      kvKeys.filter(k => typeof k === 'string' && k.startsWith('shiftPhoto:')).forEach(k => tx.objectStore('kv').delete(k));
       await txDone(tx);
       clearPhotoCache();
     } else {
@@ -3044,15 +4121,27 @@ async function restoreFromFile(file) {
     if (mode === 'replace') {
       const keep = { pinHash: S.settings.pinHash, pinSalt: S.settings.pinSalt, pinHint: S.settings.pinHint, lastBackupAt: S.settings.lastBackupAt };
       delete bs.pinHash; delete bs.pinSalt; delete bs.pinHint;
+      if (!Array.isArray(bs.shiftTypes) || !bs.shiftTypes.length) delete bs.shiftTypes;
       await kvSet('settings', { ...defaultSettings(), ...bs, ...keep, onboarded: true });
       await kvSet('profile', { ...defaultProfile(), ...(data.profile || {}) });
+      await kvSet('shifts', bShifts);
     } else {
       const ns = { ...S.settings };
       for (const k of ['startDate', 'myName', 'myBirthday']) if (!ns[k] && bs[k]) ns[k] = bs[k];
+      if (Array.isArray(bs.shiftTypes)) {
+        const haveCodes = new Set(shiftTypes().map(t => t.code));
+        ns.shiftTypes = [...shiftTypes(), ...bs.shiftTypes.filter(t => t && t.code && !haveCodes.has(t.code))];
+      }
       ns.onboarded = true;
       await kvSet('settings', ns);
       await kvSet('profile', mergeProfile(S.profile, data.profile));
+      await kvSet('shifts', { ...bShifts, ...S.shifts });   // 같은 날은 지금 기기 쪽이 남음
       await cleanOrphanPhotos();
+    }
+    for (const ym of bShiftPhotos) {
+      if (mode === 'merge' && await kvGet(`shiftPhoto:${ym}`, null)) continue;
+      const b = await zip.blob(`${prefix}shiftphotos/${ym}.jpg`, 'image/jpeg');
+      if (b) await kvSet(`shiftPhoto:${ym}`, b);
     }
     if (data.avatar && (mode === 'replace' || !(await kvGet('avatar', null)))) {
       const av = await zip.blob(prefix + data.avatar, 'image/jpeg');
@@ -3095,7 +4184,7 @@ function showOnboarding() {
   el.id = 'onboard';
   el.innerHTML = `<div class="ob-card">
     <div class="ob-logo">${ic('heartFill')}</div>
-    <h1>우리의 날들</h1>
+    <h1>${APP_NAME}</h1>
     <p class="ob-sub">그녀와의 하루하루를 담아 두는 우리만의 기록장</p>
     <form class="form" id="ob-form" novalidate>
       <label class="field"><span>그녀의 이름 <small>(애칭도 좋아요)</small></span><input type="text" id="ob-name" maxlength="30" placeholder="예) 민지" autocomplete="off"></label>
@@ -3144,11 +4233,17 @@ const ACTIONS = {
     if (pool.length) S.memPid = pool[Math.floor(Math.random() * pool.length)];
     renderHome();
   },
+  'shift-edit': el => openShiftEditor(el.dataset.date || (S.view === 'calendar' ? S.selDate : C.today())),
+  'shift-type': el => openShiftTypeEditor(el.dataset.code),
+  'shift-type-add': () => openShiftTypeEditor(),
   'ev-filter': el => { S.evFilter = el.dataset.f; renderEvents(); },
   'new-event': () => openEventEditor(),
   'edit-event': el => openEventEditor(el.dataset.id),
   'edit-section': el => openSectionEditor(el.dataset.sec),
-  'avatar': () => $('#file-avatar').click(),
+  'avatar': () => openAvatarMenu(),
+  'pf-field': el => openFieldEditor(el.dataset.k),
+  'add-item': el => openItemEditor(el.dataset.list, { cat: el.dataset.cat }),
+  'edit-item': el => openItemEditor(el.dataset.list, { id: el.dataset.id }),
   'add-family': () => openListItemEditor('family'),
   'edit-family': el => openListItemEditor('family', el.dataset.id),
   'add-wish': () => openListItemEditor('wishlist'),
@@ -3197,6 +4292,8 @@ document.addEventListener('click', e => {
   const fn = ACTIONS[el.dataset.act];
   if (!fn) return;
   if (el.tagName === 'A') return;
+  const link = e.target.closest('a');
+  if (link && el.contains(link)) return;   // 줄 안의 링크(전화·지도)는 링크대로 열기
   e.preventDefault();
   e.stopPropagation();
   fn(el, e);
