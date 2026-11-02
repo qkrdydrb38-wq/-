@@ -943,6 +943,13 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   main { overflow-x: clip; overflow-clip-margin: 24px; }
 }
 
+/* 휴대폰 위젯으로 보내기 */
+.w-send { margin-top: 12px; }
+.w-box { margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); display: grid; gap: 8px; }
+.w-box b { font-size: 15px; }
+.w-box p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.w-box small { color: var(--faint); font-size: 12.5px; font-weight: 600; }
+
 </style>
 </head>
 <body>
@@ -1632,7 +1639,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Core;
 (() => {
 'use strict';
 
-const APP_VERSION = '1.2.3';
+const APP_VERSION = '1.3.0';
 const APP_NAME = '나경이 일기';   // 화면에 보이는 앱 이름 (저장소·내부 이름 our-days 는 그대로 둠 → 기존 기록 유지)
 const C = Core;
 
@@ -1767,6 +1774,7 @@ const defaultSettings = () => ({
   theme: 'auto', photoQuality: 'normal',
   pinHash: '', pinSalt: '', pinHint: '', lastBackupAt: 0, installDismissed: false,
   shiftOn: true, shiftTypes: C.DEFAULT_SHIFT_TYPES.map(x => ({ ...x })),
+  widgetSentAt: 0,   // 위젯으로 마지막으로 보낸 때
 });
 const defaultProfile = () => ({
   name: '', nickname: '', birthday: '', phone: '', mbti: '', bloodType: '', height: '', job: '', address: '',
@@ -2980,7 +2988,8 @@ function shiftCardHTML() {
       <button class="link" data-act="shift-edit">근무표</button></div>
     <div class="shift-today"><span class="sr-label">오늘</span>${todayHTML}</div>
     <div class="week-strip">${strip}</div>
-    <p class="stats">${offText}</p></section>`;
+    <p class="stats">${offText}</p>
+    <button class="btn small soft w-send" data-act="widget-send">📲 ${S.settings.widgetSentAt ? '위젯으로 보내기' : '홈 화면 위젯 만들기'}</button></section>`;
 }
 
 // Claude에게 보낼 부탁 문장
@@ -3200,6 +3209,9 @@ function openShiftEditor(date) {
       if (S.view === 'calendar') { const p = C.parse(cur); S.calY = p.y; S.calM = p.m; S.selDate = cur; }
       refreshAll();
       toast('근무표를 저장했어요');
+      if (S.settings.widgetSentAt && await confirmBox({ title: '위젯에도 보낼까요?', message: '휴대폰 홈 화면 위젯에도 바뀐 근무표를 보내요.', ok: '보내기', cancel: '나중에' })) {
+        sendToWidget('open');
+      }
     } catch (err) { saveError(err); }
   });
 
@@ -3276,6 +3288,53 @@ function openShiftImport({ y, m, photo, onApply }) {
       alertBox('일부는 읽지 못했어요', `${lines.join('\n')}\n\n빈칸은 사진을 보고 직접 넣어 주세요.`);
     }
   });
+}
+
+// ── 휴대폰 홈 화면 위젯으로 보내기 ──────────────────────────────────
+// 웹 앱은 안드로이드 위젯을 만들 수 없어서, 따로 설치한 「나경이 근무 위젯」 앱(com.nagyeong.widget)에 근무표를 넘긴다.
+// 형식: 첫 줄 NGW1, 그다음 탭(\t)으로 나눈 줄들 → UTF-8 → base64url → nagyeongwidget://import?d=…
+const WIDGET_PKG = 'com.nagyeong.widget';
+const NAV = { go: url => { location.href = url; } };   // 시험할 때 바꿔 끼울 수 있게
+function widgetText() {
+  const clean = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').trim();
+  const from = C.addDays(C.today(), -14);
+  const lines = ['NGW1', `name\t${clean(herName())}`, `url\t${clean(location.origin + location.pathname)}`, `sent\t${new Date().toISOString()}`];
+  for (const t of shiftTypes()) lines.push(['type', t.code, t.name, t.start || '', t.end || '', t.color || 'gray', t.off ? '1' : '0'].map(clean).join('\t'));
+  for (const d of Object.keys(S.shifts).sort()) if (d >= from && S.shifts[d]) lines.push(`day\t${d}\t${clean(S.shifts[d])}`);
+  return lines.join('\n');
+}
+function base64url(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+// 깃허브 주소(아이디.github.io/저장소/)에서 위젯 앱 내려받는 곳(Releases) 주소 만들기
+function widgetReleaseURL() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+  const repo = location.pathname.split('/').filter(Boolean)[0];
+  return m && repo ? `https://github.com/${m[1]}/${repo}/releases/latest` : '';
+}
+function canShareText() {
+  try { return !!(navigator.share && (!navigator.canShare || navigator.canShare({ text: 'x' }))); } catch (e) { return false; }
+}
+function widgetLink() { return `nagyeongwidget://import?d=${base64url(widgetText())}`; }
+async function sendToWidget(how = 'open') {
+  if (!Object.keys(S.shifts).length) { toast('보낼 근무표가 없어요. 근무표를 먼저 넣어 주세요'); return; }
+  const link = widgetLink();
+  try { await saveSettings({ widgetSentAt: Date.now() }); } catch (e) { /* 무시 */ }
+  if (how === 'share') {
+    try { await navigator.share({ title: '나경이 근무 위젯', text: link }); }
+    catch (err) { if (!err || err.name !== 'AbortError') toast('보내지 못했어요'); }
+    refreshAll();
+    return;
+  }
+  const fb = widgetReleaseURL();
+  // 위젯 앱이 있으면 바로 열리고, 없으면 앱 내려받는 곳(깃허브 Releases)으로 감
+  const intent = `intent://import?d=${link.split('d=')[1]}#Intent;scheme=nagyeongwidget;package=${WIDGET_PKG};`
+    + (fb ? `S.browser_fallback_url=${encodeURIComponent(fb)};` : '') + 'end';
+  refreshAll();
+  NAV.go(intent);
 }
 
 // 근무 종류 추가·고치기
@@ -3760,6 +3819,14 @@ function renderSettings() {
       ${shiftTypes().map(t => `<button class="list-row" data-act="shift-type" data-code="${esc(t.code)}">${shiftChip(t.code)}
         <span class="lr-main"><b>${esc(t.name)}</b><small>${C.shiftTimeLabel(t) || (t.off ? '쉬는 날' : '시간 없음')}${t.off && C.shiftTimeLabel(t) ? ' · 쉬는 날' : ''}</small></span>${ic('right')}</button>`).join('')}
       <button class="btn small soft add-row" data-act="shift-type-add">${ic('plus')} 근무 종류 추가</button>
+      <div class="w-box">
+        <b>📲 휴대폰 홈 화면 위젯</b>
+        <p>「나경이 근무 위젯」 앱을 설치하면 홈 화면에서 ${esc(herName())}의 오늘·이번 주 근무를 볼 수 있어요 (안드로이드 전용). 근무표를 바꾼 뒤에는 '위젯으로 보내기'를 눌러 주세요.</p>
+        <div class="btn-row"><button class="btn small primary" data-act="widget-send">📲 위젯으로 보내기</button>
+          ${widgetReleaseURL() ? `<a class="btn small" href="${esc(widgetReleaseURL())}" target="_blank" rel="noopener">위젯 앱 받기</a>` : ''}
+          ${canShareText() ? '<button class="btn small" data-act="widget-share">공유로 보내기</button>' : ''}</div>
+        <small>${S.settings.widgetSentAt ? `마지막으로 보낸 때: ${esc(new Date(S.settings.widgetSentAt).toLocaleString('ko-KR'))}` : '아직 보낸 적이 없어요'}</small>
+      </div>
     </section>
     <section class="card"><div class="card-head"><h3>🎨 화면</h3></div>
       <div class="set-row"><span class="lbl"><b>테마</b></span>
@@ -4255,6 +4322,8 @@ const ACTIONS = {
   'shift-edit': el => openShiftEditor(el.dataset.date || (S.view === 'calendar' ? S.selDate : C.today())),
   'shift-type': el => openShiftTypeEditor(el.dataset.code),
   'shift-type-add': () => openShiftTypeEditor(),
+  'widget-send': () => sendToWidget('open'),
+  'widget-share': () => sendToWidget('share'),
   'ev-filter': el => { S.evFilter = el.dataset.f; renderEvents(); },
   'new-event': () => openEventEditor(),
   'edit-event': el => openEventEditor(el.dataset.id),
@@ -4432,7 +4501,7 @@ async function boot() {
   else if (S.settings.pinHash) Lock.show();
   registerSW();
   if (S.entries.length) requestPersist();
-  window.__ourDays = { version: APP_VERSION, S, C };
+  window.__ourDays = { version: APP_VERSION, S, C, NAV, widgetText, widgetLink };
 }
 boot();
 })();
