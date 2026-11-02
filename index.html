@@ -2,33 +2,28 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" id="vp" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="viewport" id="vp" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <script>
-/* 화면 맞춤: 휴대폰 '글자 크기'나 '화면 확대'를 크게 해 두면 크롬이 앱을 360px보다 좁게 그려서
-   글자가 줄바꿈되고 확대된 것처럼 보인다. 그럴 때는 360px 휴대폰과 같은 모양으로 그린 뒤
-   화면 폭에 딱 맞게 줄여서 보여 준다. (태블릿·넓은 휴대폰은 그대로) */
+/* 화면 맞춤 (v1.2.1)
+   휴대폰 '글자 크기'나 '화면 확대'를 크게 해 두면 크롬이 앱을 360px보다 좁게 그려서 글자가 커 보이고 줄이 쪼개진다.
+   그럴 때는 화면 전체를 CSS zoom 으로 살짝 줄여서 360px 휴대폰과 같은 모양으로 보여 준다.
+   - 크롬의 확대 배율(viewport)은 건드리지 않음 → 글 입력할 때 자동 확대, 두 번 톡 확대, 아래 메뉴 밀려남이 생기지 않음
+   - 화면 '폭'이 바뀔 때만 다시 계산 → 키보드가 올라와도(높이만 바뀜) 크기가 변하지 않음 */
 (function () {
-  var MIN = 360;
-  var vp = document.getElementById('vp');
-  var TAIL = ', viewport-fit=cover, interactive-widget=resizes-content';
-  var DEV = 'width=device-width, initial-scale=1' + TAIL;
-  window.__vp = { real: 0, fitted: false };
+  var MIN = 360, last = -1, root = document.documentElement;
+  window.__vp = { real: 0, fitted: false, zoom: 1 };
   function fit() {
-    vp.setAttribute('content', DEV);
-    var w = document.documentElement.clientWidth || window.innerWidth;
-    window.__vp = { real: w, fitted: false };
-    if (w && w < MIN) {
-      vp.setAttribute('content', 'width=' + MIN + ', initial-scale=' + (w / MIN).toFixed(4) + TAIL);
-      window.__vp.fitted = true;
-    }
+    var w = window.innerWidth || root.clientWidth;
+    if (!w || w === last) return;
+    last = w;
+    var z = w < MIN ? Math.round(w / MIN * 1000) / 1000 : 1;
+    root.style.zoom = z < 1 ? String(z) : '';
+    root.style.setProperty('--z', String(z));
+    window.__vp = { real: w, fitted: z < 1, zoom: z };
   }
   fit();
-  // 휴대폰을 가로/세로로 돌리면 다시 맞추기
-  var mq = window.matchMedia && window.matchMedia('(orientation: portrait)');
-  var refit = function () { setTimeout(fit, 60); };
-  if (mq && mq.addEventListener) mq.addEventListener('change', refit);
-  else if (mq && mq.addListener) mq.addListener(refit);
-  window.addEventListener('orientationchange', refit);
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', function () { setTimeout(fit, 120); });
 })();
 </script>
 <title>나경이 일기</title>
@@ -55,7 +50,8 @@
   --k-us: #D33F69; --k-birthday: #D2701A; --k-couple: #9446BD; --k-custom: #16877A; --k-family: #4B8429;
   --shadow: 0 1px 2px rgba(70, 30, 45, .05), 0 6px 22px rgba(70, 30, 45, .07);
   --radius: 18px; --tab-h: 64px; --side-w: 252px;
-  --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  --z: 1;   /* 화면 맞춤 배율 (좁은 휴대폰에서 1보다 작아짐) — 화면 높이·안전 여백을 이 값으로 나눠 원래 크기로 맞춤 */
+  --safe-t: calc(env(safe-area-inset-top, 0px) / var(--z)); --safe-b: calc(env(safe-area-inset-bottom, 0px) / var(--z));
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -125,7 +121,7 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; }
 .btn-col { display: grid; gap: 8px; }
 
 /* ---------- 큰 틀 ---------- */
-#app { min-height: 100vh; min-height: 100dvh; }
+#app { min-height: calc(100vh / var(--z)); min-height: calc(100dvh / var(--z)); }
 .side { display: none; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
@@ -548,7 +544,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
 .backdrop { position: absolute; inset: 0; background: rgba(25, 10, 18, .45); opacity: 0; transition: opacity .22s; }
 .ov.open .backdrop { opacity: 1; }
 .sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; max-height: 94vh; max-height: 94dvh;
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(94vh / var(--z)); max-height: calc(94dvh / var(--z));
   background: var(--surface); border-radius: 24px 24px 0 0; display: flex; flex-direction: column;
   transform: translateY(100%); transition: transform .28s cubic-bezier(.2, .8, .2, 1);
   padding-bottom: var(--safe-b); box-shadow: 0 -10px 40px rgba(0, 0, 0, .15);
@@ -570,7 +566,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   .sheet.wide { width: min(860px, 94vw); }
 }
 .dialog {
-  position: absolute; left: 50%; top: 50%; width: min(400px, 88vw); padding: 22px; border-radius: 22px;
+  position: absolute; left: 50%; top: 50%; width: min(400px, calc(88vw / var(--z))); padding: 22px; border-radius: 22px;
   background: var(--surface); box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
   opacity: 0; transform: translate(-50%, -50%) scale(.95); transition: opacity .18s, transform .18s;
 }
@@ -668,7 +664,7 @@ input[type=date]::-webkit-date-and-time-value { text-align: left; }
   position: fixed; left: 50%; z-index: 700; bottom: calc(var(--tab-h) + var(--safe-b) + 92px);
   transform: translate(-50%, 16px); opacity: 0; pointer-events: none; transition: opacity .22s, transform .22s;
   background: #2A2225; color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 700; font-size: 15px;
-  max-width: min(92vw, 460px); width: max-content; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  max-width: min(calc(92vw / var(--z)), 460px); width: max-content; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (min-width: 900px) { #toast { bottom: 32px; margin-left: calc(var(--side-w) / 2); } }
@@ -1615,7 +1611,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Core;
 (() => {
 'use strict';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const APP_NAME = '나경이 일기';   // 화면에 보이는 앱 이름 (저장소·내부 이름 our-days 는 그대로 둠 → 기존 기록 유지)
 const C = Core;
 
@@ -2847,8 +2843,9 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
       apply(false);
     } else if (pts.size === 1 && startPt) {
       const dx = ev.clientX - startPt.x, dy = ev.clientY - startPt.y;
-      if (scale > 1) { tx = startPt.tx + dx; ty = startPt.ty + dy; apply(false); }
-      else { img.classList.add('dragging'); img.style.transform = `translateX(${dx}px)`; }
+      const zf = (window.__vp && window.__vp.zoom) || 1;   // 화면 맞춤으로 줄였으면 손가락 이동을 같은 거리로 맞춤
+      if (scale > 1) { tx = startPt.tx + dx / zf; ty = startPt.ty + dy / zf; apply(false); }
+      else { img.classList.add('dragging'); img.style.transform = `translateX(${dx / zf}px)`; }
     }
   });
   const end = ev => {
@@ -2874,8 +2871,9 @@ function openViewer(items, start = 0, { showEntry = false } = {}) {
         else {
           const r = stage.getBoundingClientRect();
           scale = 2.5;
-          tx = (r.left + r.width / 2 - ev.clientX) * (scale - 1);
-          ty = (r.top + r.height / 2 - ev.clientY) * (scale - 1);
+          const zf = (window.__vp && window.__vp.zoom) || 1;
+          tx = (r.left + r.width / 2 - ev.clientX) * (scale - 1) / zf;
+          ty = (r.top + r.height / 2 - ev.clientY) * (scale - 1) / zf;
           clampPan(); apply();
         }
       } else { lastTap = now; apply(); }

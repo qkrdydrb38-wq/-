@@ -2,7 +2,7 @@
    sw.js — 인터넷 없이도 앱이 열리게 해 주는 파일 (서비스 워커)
    앱을 고칠 때마다 아래 VERSION 숫자도 index.html의 APP_VERSION과 똑같이 올려 주세요.
    ========================================================================== */
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 const CACHE = 'our-days-' + VERSION;
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
